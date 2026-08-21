@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Domio – Clean Professional Theme
+   White / Light Grey backgrounds • Black text • Accent teal/green
+   Font: Poppins (Google Fonts loaded via next/font)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Core Palette ────────────────────────────────────────────── */
+  --domio-white:      #ffffff;
+  --domio-off-white:  #fafaf9;
+  --domio-surface:    #f5f5f7;
+  --domio-surface-2:  #eeeeee;
+  --domio-border:     #e1e2e3;
+  --domio-border-2:   #d4d4d8;
+
+  /* ── Text ────────────────────────────────────────────────────── */
+  --domio-text:       #0a0a0a;
+  --domio-text-2:     #3f3f46;
+  --domio-text-muted: #71717a;
+  --domio-text-faint: #a1a1aa;
+
+  /* ── Accent (Domio monochrome — black/white only) ── */
+  --domio-accent:     #0a0a0a;       /* Black CTA */
+  --domio-accent-2:   #3f3f46;
+  --domio-accent-soft:#f5f5f7;
+  --domio-accent-border:#e1e2e3;
+  --domio-green:      #059669;
+  --domio-red:        #dc2626;
+  --domio-amber:      #d97706;
+
+  /* ── Payment status variables ────────────────────────────────── */
+  --unit-vacant:   #d97706;
+  --unit-paid:     #059669;
+  --unit-amber:    #d97706;
+  --unit-red:      #dc2626;
+  --unit-inactive: #9ca3af;
+
+  /* ── Global ──────────────────────────────────────────────────── */
+  --background: var(--domio-off-white);
+  --foreground: var(--domio-text);
+  color-scheme: light;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-poppins), 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  background: var(--domio-off-white);
+  color: var(--domio-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Tabular numbers for monetary columns ───────────────────────────────── */
+.font-mono, .tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Smooth transitions ─────────────────────────────────────────────────── */
+.theme-root,
+.theme-root * {
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+/* ── Scrollbar hide utility ─────────────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Domi mascot bob animation ──────────────────────────────────────────── */
+@keyframes domi-bob {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}
+.domi-bob { animation: domi-bob 1s ease-in-out infinite; }
+
+/* ── Button shadows ─────────────────────────────────────────────────────── */
+.btn-shadow {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+}
+.btn-shadow:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* ── Card elevation ─────────────────────────────────────────────────────── */
+.card-shadow {
+  box-shadow: inset 0 0 0 1px #e1e2e3;
+}
+.card-shadow:hover {
+  box-shadow: inset 0 0 0 1px #c4c4c8, 0 4px 20px rgba(0,0,0,0.08);
+}
+
+/* ── Dark theme (if user explicitly needs it) ───────────────────────────── */
+[data-theme="dark"] {
+  --domio-white:      #0b0b0f;
+  --domio-off-white:  #060608;
+  --domio-surface:    #101015;
+  --domio-surface-2:  #16161e;
+  --domio-border:     #27272a;
+  --domio-border-2:   #3f3f46;
+  --domio-text:       #ffffff;
+  --domio-text-2:     #d4d4d8;
+  --domio-text-muted: #a1a1aa;
+  --domio-text-faint: #71717a;
+  --domio-accent-soft:#18181b;
+  --domio-accent-border:#3f3f46;
+  --background: #060608;
+  --foreground: #ffffff;
+  color-scheme: dark;
+
+  --unit-vacant:   #f59e0b;
+  --unit-paid:     #10b981;
+  --unit-amber:    #f59e0b;
+  --unit-red:      #ef4444;
+  --unit-inactive: #52525b;
+}
+
+[data-theme="dark"] body {
+  background: #060608;
+  color: #ffffff;
+}
