@@ -1,0 +1,650 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id         String      @id @default(cuid())
+  name       String
+  email      String      @unique
+  phone      String?
+  password   String
+  role       Role        @default(OWNER)
+  accountId  String?     @unique // e.g. DMO-2026-00001 (owners) / MGR-0001 (managers)
+  active     Boolean     @default(true)
+  themePreference String  @default("dark") // 'dark' | 'light'
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  // For MANAGER accounts: when true, Ask Domi may read the whole portfolio;
+  // when false (default), Ask Domi answers are restricted to the manager's
+  // granted units, matching the rest of the app.
+  aiFullPortfolioRead Boolean @default(false)
+  // For MANAGER accounts: the OWNER who created them.
+  ownerId    String?
+  owner      User?       @relation("OwnerManagers", fields: [ownerId], references: [id])
+  managers   User[]      @relation("OwnerManagers")
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  portfolios Portfolio[]
+  properties Property[]
+  subProperties SubProperty[]
+  rentableEntities RentableEntity[] @relation("RentableEntityOwner")
+  tenants    Tenant[]
+  tenancies  Tenancy[]
+  rentLedger RentLedger[]
+  expenses   Expense[]
+  utilityAccounts UtilityAccount[]
+  utilityBills    UtilityBill[]
+  documents       Document[]
+  notificationConfig NotificationConfig?
+  emailLogs       EmailLog[]
+  managedAccess   PropertyAccess[] @relation("ManagerAccess")
+  grantedAccess   PropertyAccess[] @relation("OwnerAccess")
+  importJobs      ImportJob[]
+  ledgerEntriesCreated LedgerEntry[] @relation("LedgerEntryCreator")
+  ledgerEntriesUpdated LedgerEntry[] @relation("LedgerEntryUpdater")
+  auditActions    AuditLog[]       @relation("AuditActor")
+  auditLogs       AuditLog[]       @relation("AuditOwner")
+  aiConversations AiConversation[] @relation("AiConversations")
+}
+
+// Saved Ask Domi chat threads. `messages` is the conversation array; attachment
+// bytes are stripped to text placeholders before saving to keep rows small.
+model AiConversation {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation("AiConversations", fields: [ownerId], references: [id], onDelete: Cascade)
+  title     String
+  messages  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId, updatedAt])
+}
+
+enum Role {
+  SUPER_ADMIN
+  OWNER
+  MANAGER
+}
+
+model Portfolio {
+  id          String        @id @default(cuid())
+  displayId   String?       // e.g. PF-0001
+  name        String
+  type        PortfolioType
+  description String?
+  ownerId     String
+  owner       User          @relation(fields: [ownerId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  properties  Property[]
+  expenses    Expense[]
+  utilityAccounts UtilityAccount[]
+}
+
+enum PortfolioType {
+  RESIDENTIAL
+  COMMERCIAL
+  MIXED
+  INDUSTRIAL
+}
+
+model Property {
+  id          String         @id @default(cuid())
+  displayId   String?        // e.g. PR-0001
+  name        String
+  address     String
+  city        String
+  country     String
+  type        PropertyType
+  status      PropertyStatus @default(ACTIVE)
+  notes       String?
+  latitude    Float?
+  longitude   Float?
+  unitsExpanded Boolean      @default(false)
+  unitsGroupBy  String       @default("custom") // "custom" | "floor" | "status" | "rent"
+  unitSections  Json?        // [{ id, label, unitIds: string[] }] — section layout
+  portfolioId String
+  portfolio   Portfolio      @relation(fields: [portfolioId], references: [id])
+  ownerId     String
+  owner       User           @relation(fields: [ownerId], references: [id])
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  subProperties   SubProperty[]
+  rentableEntities RentableEntity[]
+  expenses    Expense[]
+  utilityAccounts UtilityAccount[]
+  propertyAccess PropertyAccess[]
+}
+
+enum PropertyType {
+  RESIDENTIAL
+  COMMERCIAL
+  MIXED
+  INDUSTRIAL
+}
+
+enum PropertyStatus {
+  ACTIVE
+  VACANT
+  MAINTENANCE
+}
+
+model SubProperty {
+  id         String            @id @default(cuid())
+  displayId  String?           // e.g. UN-0001
+  name       String
+  unitNumber String
+  floor      String?           // e.g. "Ground", "First", "Mezzanine"
+  sortOrder  Int?              // custom drag-and-drop order within a property
+  areaSqft   Float?
+  rentAmount Float
+  status     SubPropertyStatus @default(VACANT)
+  notes      String?
+  propertyId String
+  property   Property          @relation(fields: [propertyId], references: [id])
+  ownerId    String
+  owner      User              @relation(fields: [ownerId], references: [id])
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  tenancies  Tenancy[]
+  expenses   Expense[]
+  utilityAccounts UtilityAccount[]
+  propertyAccess PropertyAccess[]
+  auditLogs  AuditLog[]
+}
+
+enum SubPropertyStatus {
+  OCCUPIED
+  VACANT
+  MAINTENANCE
+}
+
+// ── Variable-granularity rental hierarchy ────────────────────────────────────
+// A self-referential tree that can represent any rentable unit:
+//   Property (whole building) → Floor → Room → Bed
+// Each node can have an independent active Tenancy (lease). The conflict rules
+// (ancestor lease blocks a descendant lease and vice-versa) are enforced in
+// lib/rentable-entities.ts via recursive PostgreSQL CTEs.
+
+enum RentableEntityType {
+  PROPERTY // whole-building lease (logically maps to a Property row)
+  FLOOR    // a floor within a building
+  ROOM     // a room within a floor or directly under the property
+  BED      // an individual bed within a shared room
+}
+
+model RentableEntity {
+  id          String             @id @default(cuid())
+  displayId   String?            // e.g. RE-0001
+  type        RentableEntityType
+  name        String             // e.g. "Floor 2", "Room 3A", "Bed B"
+  code        String             // short identifier e.g. "F2", "R3A", "BD-B"
+  areaSqft    Float?
+  rentAmount  Float              // listed/asking rent for this node alone
+  status      SubPropertyStatus  @default(VACANT)
+  notes       String?
+  sortOrder   Int?
+
+  // Self-referential parent–child relationship forming the tree.
+  parentId    String?
+  parent      RentableEntity?    @relation("EntityChildren", fields: [parentId], references: [id])
+  children    RentableEntity[]   @relation("EntityChildren")
+
+  // Every node lives under a concrete Property (for scoping/access control).
+  propertyId  String
+  property    Property           @relation(fields: [propertyId], references: [id])
+  ownerId     String
+  owner       User               @relation("RentableEntityOwner", fields: [ownerId], references: [id])
+
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  tenancies   Tenancy[]
+
+  @@index([propertyId])
+  @@index([parentId])
+  @@index([ownerId])
+}
+
+model Tenant {
+  id                    String      @id @default(cuid())
+  displayId             String?     // e.g. TN-0001
+  name                  String
+  username              String?     @unique // chosen by self-registered tenants e.g. "john_doe"
+  password              String?     // bcrypt hash — set by self-registered tenants
+  email                 String?     // optional — phone-only tenants may not have email
+  phone                 String
+  nationalId            String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  bankAccountNumber     String?
+  bankName              String?
+  // ── Tenant Self-Service Portal ────────────────────────────────────────────
+  // portalEnabled = true lets OTP-based login (landlord-added tenants).
+  // Self-registered tenants always have portal access via username+password.
+  portalEnabled         Boolean     @default(false)
+  selfRegistered        Boolean     @default(false) // true when tenant registered on their own
+  ownerId               String?     // null until linked to an owner
+  owner                 User?       @relation(fields: [ownerId], references: [id])
+  tenancies             Tenancy[]
+  otps                  TenantOtp[]
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@index([phone])
+  @@index([username])
+}
+
+// One-time passwords for the tenant self-service portal.
+// Rows are created by POST /api/tenant-portal/request-otp and consumed
+// (marked used=true) by POST /api/tenant-portal/verify-otp.
+model TenantOtp {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  otpHash   String   // bcrypt hash of the 6-digit code
+  expiresAt DateTime // 10 minutes from creation
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model Tenancy {
+  id                String          @id @default(cuid())
+  displayId         String?         // e.g. TC-0001
+  tenantId          String
+  tenant            Tenant          @relation(fields: [tenantId], references: [id])
+
+  // ── Lease attachment point (exactly one of these two should be set) ──────
+  // Legacy path: flat SubProperty unit (existing data).
+  subPropertyId     String?
+  subProperty       SubProperty?    @relation(fields: [subPropertyId], references: [id])
+  // New path: any node in the RentableEntity hierarchy (floor/room/bed/etc.).
+  rentableEntityId  String?
+  rentableEntity    RentableEntity? @relation(fields: [rentableEntityId], references: [id])
+
+  ownerId           String
+  owner             User            @relation(fields: [ownerId], references: [id])
+  startDate         DateTime
+  endDate           DateTime
+  monthlyRent       Float
+  securityDeposit   Float           @default(0)
+  paymentDayOfMonth Int             @default(1)
+  status            TenancyStatus   @default(ACTIVE)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  rentLedger        RentLedger[]
+  ledgerEntries     LedgerEntry[]
+  auditLogs         AuditLog[]
+}
+
+enum TenancyStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+enum LedgerEntryType {
+  RENT_CHARGE
+  PAYMENT
+  ADJUSTMENT
+}
+
+model LedgerEntry {
+  id          String          @id @default(cuid())
+  tenancyId   String
+  tenancy     Tenancy         @relation(fields: [tenancyId], references: [id])
+  type        LedgerEntryType
+  amount      Int
+  date        DateTime
+  // Which rental period this entry is for (esp. payments) — defaults to `date`
+  // in the UI but can be set to the month the payment actually covers.
+  rentFor     DateTime?
+  description String
+  createdById String?
+  createdBy   User?           @relation("LedgerEntryCreator", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?           @relation("LedgerEntryUpdater", fields: [updatedById], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([tenancyId, date])
+}
+
+model RentLedger {
+  id         String     @id @default(cuid())
+  tenancyId  String
+  tenancy    Tenancy    @relation(fields: [tenancyId], references: [id])
+  ownerId    String
+  owner      User       @relation(fields: [ownerId], references: [id])
+  dueDate    DateTime
+  amountDue  Float
+  amountPaid Float      @default(0)
+  paidDate   DateTime?
+  // Which rental period a recorded payment is for — defaults to paidDate in the
+  // UI but can be changed to the month the payment actually covers.
+  rentFor    DateTime?
+  reference  String?
+  notes      String?
+  paymentMethod PaymentMethod?
+  status     RentStatus @default(DUE)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+enum RentStatus {
+  DUE
+  PAID
+  PARTIAL
+  OVERDUE
+}
+model Expense {
+  id            String          @id @default(cuid())
+  ownerId       String
+  owner         User            @relation(fields: [ownerId], references: [id])
+  portfolioId   String?
+  portfolio     Portfolio?      @relation(fields: [portfolioId], references: [id])
+  propertyId    String?
+  property      Property?       @relation(fields: [propertyId], references: [id])
+  subPropertyId String?
+  subProperty   SubProperty?    @relation(fields: [subPropertyId], references: [id])
+  category      ExpenseCategory
+  amount        Float
+  date          DateTime
+  description   String?
+  receiptUrl    String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+enum ExpenseCategory {
+  MAINTENANCE
+  CLEANING
+  INSURANCE
+  TAX
+  LEGAL
+  UTILITIES
+  MANAGEMENT
+  OTHER
+}
+
+model UtilityAccount {
+  id            String        @id @default(cuid())
+  ownerId       String
+  owner         User          @relation(fields: [ownerId], references: [id])
+  portfolioId   String?
+  portfolio     Portfolio?    @relation(fields: [portfolioId], references: [id])
+  propertyId    String?
+  property      Property?     @relation(fields: [propertyId], references: [id])
+  subPropertyId String?
+  subProperty   SubProperty?  @relation(fields: [subPropertyId], references: [id])
+  type          UtilityType
+  provider      String
+  accountNumber String
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  bills         UtilityBill[]
+}
+
+model UtilityBill {
+  id               String         @id @default(cuid())
+  utilityAccountId String
+  utilityAccount   UtilityAccount @relation(fields: [utilityAccountId], references: [id])
+  ownerId          String
+  owner            User           @relation(fields: [ownerId], references: [id])
+  billDate         DateTime
+  dueDate          DateTime
+  amount           Float
+  amountPaid       Float          @default(0)
+  paidDate         DateTime?
+  status           BillStatus     @default(UNPAID)
+  notes            String?
+  paymentMethod    PaymentMethod?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+enum UtilityType {
+  ELECTRICITY
+  WATER
+  GAS
+  INTERNET
+  OTHER
+}
+
+enum BillStatus {
+  UNPAID
+  PAID
+  OVERDUE
+  PARTIAL
+}
+
+enum PaymentMethod {
+  CASH
+  CHEQUE
+  DIRECT_DEPOSIT
+  BANK_TRANSFER
+  OTHER
+}
+
+model Document {
+  id           String       @id @default(cuid())
+  displayId    String?      @unique
+  ownerId      String
+  owner        User         @relation(fields: [ownerId], references: [id])
+  name         String
+  description  String?
+  documentType DocumentType
+  fileKey      String
+  fileName     String
+  fileSize     Int
+  mimeType     String
+  expiryDate   DateTime?
+  entityType   EntityType
+  entityId     String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([ownerId, entityType, entityId])
+}
+
+enum DocumentType {
+  LEASE_AGREEMENT
+  PROPERTY_DEED
+  INSURANCE
+  INSPECTION_REPORT
+  UTILITY_AGREEMENT
+  TENANT_ID
+  BANK_STATEMENT
+  LEGAL
+  OTHER
+}
+
+enum EntityType {
+  PORTFOLIO
+  PROPERTY
+  SUB_PROPERTY
+  TENANT
+}
+
+model NotificationConfig {
+  id                       String   @id @default(cuid())
+  ownerId                  String   @unique
+  owner                    User     @relation(fields: [ownerId], references: [id])
+  emailEnabled             Boolean  @default(true)
+  rentReminderEnabled      Boolean  @default(true)
+  rentReminderIntervalDays Int      @default(10)
+  leaseExpiryEnabled       Boolean  @default(true)
+  leaseExpiryDays          Int[]    @default([60, 30, 14])
+  paymentConfirmEnabled    Boolean  @default(true)
+  utilityReminderEnabled   Boolean  @default(true)
+  welcomeEmailEnabled      Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model EmailLog {
+  id             String        @id @default(cuid())
+  ownerId        String
+  owner          User          @relation(fields: [ownerId], references: [id])
+  recipientEmail String
+  subject        String
+  templateType   EmailTemplate
+  entityId       String?
+  entityType     String?
+  resendId       String?
+  status         EmailStatus   @default(SENT)
+  error          String?
+  sentAt         DateTime      @default(now())
+
+  @@index([entityId, templateType])
+  @@index([ownerId, sentAt])
+}
+
+enum EmailTemplate {
+  PAYMENT_RECEIVED
+  RENT_OVERDUE_REMINDER
+  LEASE_EXPIRY_WARNING
+  WELCOME_OWNER
+  UTILITY_BILL_OVERDUE
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+}
+
+model PropertyAccess {
+  id            String       @id @default(cuid())
+  managerId     String
+  manager       User         @relation("ManagerAccess", fields: [managerId], references: [id])
+  ownerId       String
+  owner         User         @relation("OwnerAccess", fields: [ownerId], references: [id])
+  propertyId    String?
+  property      Property?    @relation(fields: [propertyId], references: [id])
+  subPropertyId String?
+  subProperty   SubProperty? @relation(fields: [subPropertyId], references: [id])
+  accessLevel   AccessLevel  @default(VIEW)
+  // Orthogonal to accessLevel: rent-ledger editing is granted separately, so an
+  // owner can delegate rent corrections without granting edit on everything else.
+  canEditRentLedger Boolean  @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([managerId, propertyId])
+  @@unique([managerId, subPropertyId])
+}
+
+enum AccessLevel {
+  VIEW
+  EDIT
+}
+
+// Append-only trail of every rent-ledger mutation. Only lib/audit.ts writes here,
+// and it only ever creates — never update or delete a row in this table.
+model AuditLog {
+  id            String      @id @default(cuid())
+  entity        AuditEntity
+  // Deliberately NOT a foreign key: a DELETE log must outlive the row it records.
+  entityId      String
+  action        AuditAction
+
+  // Nullable + SetNull: deleting the actor preserves the record (actorName /
+  // actorRole are point-in-time snapshots — the whole point of the trail).
+  actorId       String?
+  actor         User?       @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorRole     Role        // snapshot: the actor may later be promoted or removed
+  actorName     String      // snapshot: survives a rename or deactivation
+
+  // Denormalised so the audit views never join back through four tables.
+  // Cascade: the audit row dies with the entity it describes, so it never
+  // blocks deleting a tenant, unit, or owner (or an import rollback).
+  ownerId       String
+  owner         User        @relation("AuditOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  subPropertyId String
+  subProperty   SubProperty @relation(fields: [subPropertyId], references: [id], onDelete: Cascade)
+  tenancyId     String
+  tenancy       Tenancy     @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+
+  before        Json?       // null on CREATE
+  after         Json?       // null on DELETE
+  changedFields String[]    @default([])
+  reason        String?     // optional "why", captured in the edit modal
+  createdAt     DateTime    @default(now())
+
+  @@index([entity, entityId, createdAt])
+  @@index([ownerId, createdAt])
+  @@index([subPropertyId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+enum AuditEntity {
+  LEDGER_ENTRY // the signed transaction journal
+  RENT_LEDGER  // the monthly due schedule
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+model ImportJob {
+  id               String           @id @default(cuid())
+  displayId        String?          @unique
+  ownerId          String
+  owner            User             @relation(fields: [ownerId], references: [id])
+  importType       ImportType
+  status           ImportStatus     @default(UPLOADING)
+  originalFileName String
+  fileType         String
+  s3Key            String?
+  totalRows        Int              @default(0)
+  validRows        Int              @default(0)
+  warningRows      Int              @default(0)
+  errorRows        Int              @default(0)
+  aiAnalysis       Json?
+  mappedData       Json?
+  userInputs       Json?
+  confirmedAt      DateTime?
+  rolledBackAt     DateTime?
+  errorMessage     String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  importedRecords  ImportedRecord[]
+}
+
+model ImportedRecord {
+  id          String    @id @default(cuid())
+  importJobId String
+  importJob   ImportJob @relation(fields: [importJobId], references: [id])
+  entityType  String
+  entityId    String
+  sourceData  Json
+  createdAt   DateTime  @default(now())
+}
+
+enum ImportType {
+  FIRST_TIME_PROPERTY_LOAD
+  BANK_STATEMENT
+  EXPENSE_IMPORT
+  TENANT_IMPORT
+}
+
+enum ImportStatus {
+  UPLOADING
+  ANALYSING
+  AWAITING_INPUT
+  READY_TO_IMPORT
+  IMPORTING
+  COMPLETED
+  ROLLED_BACK
+  FAILED
+}
