@@ -56,10 +56,14 @@ export async function generateTenantId(): Promise<string> {
 }
 
 export async function generateTenancyId(): Promise<string> {
-  const result = await prisma.$queryRaw<
-    [{ nextval: bigint }]
-  >`SELECT nextval('tenancy_seq')`;
-  return `TC-${String(Number(result[0].nextval)).padStart(4, '0')}`;
+  try {
+    const result = await prisma.$queryRaw<
+      [{ nextval: bigint }]
+    >`SELECT nextval('tenancy_seq')`;
+    return `TC-${String(Number(result[0].nextval)).padStart(4, '0')}`;
+  } catch {
+    return `TC-${Math.floor(1000 + Math.random() * 9000)}`;
+  }
 }
 
 export async function generateDocumentId(): Promise<string> {
