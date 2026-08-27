@@ -165,19 +165,21 @@ export default function LoginForm() {
         </p>
       )}
 
-      <button type="submit" disabled={isPending} className={submitClass}>
-        {isPending ? 'Signing in…' : 'Sign in'}
+      <button type="submit" disabled={isPending} className="mt-2 rounded-xl bg-gradient-to-r from-[#E8A020] to-[#FFC453] px-5 py-3 text-sm font-bold text-zinc-950 shadow-lg shadow-[#E8A020]/20 transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-50">
+        {isPending ? 'Signing in…' : 'Sign In to Domio'}
       </button>
 
-      <p className="text-center text-xs text-[#B0B0C8]">
-        Don&apos;t have an account?{' '}
+      <div className="mt-2 border-t border-[#312D58]/60 pt-4 text-center">
+        <p className="text-xs text-[#B0B0C8]">
+          Don&apos;t have an account yet?
+        </p>
         <Link
           href="/register"
-          className="font-medium text-zinc-500 transition-colors hover:text-white"
+          className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#E8A020]/40 bg-[#E8A020]/10 px-4 py-2.5 text-xs font-bold text-[#E8A020] transition-all hover:bg-[#E8A020]/20 hover:border-[#E8A020]"
         >
-          Sign up
+          <span>✨</span> Create New Account (Owner / Renter)
         </Link>
-      </p>
+      </div>
     </form>
   );
 }

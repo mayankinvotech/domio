@@ -28,7 +28,7 @@ export default function RegisterPage() {
         }}
       />
 
-      <div className="relative z-10 w-full max-w-sm">
+      <div className="relative z-10 w-full max-w-md">
         {/* Gold wordmark */}
         <div className="mb-6 text-center">
           <span className="text-2xl font-black tracking-[0.25em] text-[#E8A020]">
@@ -36,17 +36,8 @@ export default function RegisterPage() {
           </span>
         </div>
 
-        <div className="rounded-2xl border border-[#312D58] bg-[#17152F] p-8 shadow-xl">
+        <div className="rounded-2xl border border-[#312D58] bg-[#17152F] p-6 sm:p-8 shadow-xl backdrop-blur-sm">
           <RegisterForm />
-        </div>
-
-        <div className="mt-4 text-center">
-          <p className="text-xs text-[#B0B0C8]">
-            Are you a tenant?{' '}
-            <a href="/tenant-portal/register" className="font-semibold text-zinc-500 hover:underline">
-              Register as Tenant here →
-            </a>
-          </p>
         </div>
       </div>
     </div>

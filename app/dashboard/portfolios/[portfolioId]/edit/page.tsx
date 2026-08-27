@@ -19,16 +19,16 @@ export default async function EditPortfolioPage({
   if (!portfolio) notFound();
 
   return (
-    <div className="mx-auto max-w-lg">
+    <div className="mx-auto max-w-lg space-y-4">
       <Link
         href="/dashboard/portfolios"
-        className="text-sm text-[#E8E8F2] transition-colors hover:text-white"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 transition-colors hover:text-zinc-900"
       >
         ← Back to Portfolios
       </Link>
 
-      <div className="mt-4 rounded-2xl border border-[#312D58] bg-[#17152F] p-8">
-        <h1 className="mb-6 text-2xl font-semibold tracking-tight text-white">
+      <div className="rounded-2xl border border-zinc-200/90 bg-white p-6 sm:p-8 shadow-xs">
+        <h1 className="mb-6 text-xl sm:text-2xl font-bold tracking-tight text-zinc-900">
           Edit Portfolio
         </h1>
         <PortfolioForm

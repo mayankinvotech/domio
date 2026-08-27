@@ -12,6 +12,10 @@ export type PropertyListItem = {
   city: string;
   country: string;
   type: PropertyType;
+  customType?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  ownerPhone?: string | null;
   status: PropertyStatus;
   notes: string | null;
   unitCount: number;
@@ -27,6 +31,10 @@ const listSelect = {
   city: true,
   country: true,
   type: true,
+  customType: true,
+  ownerName: true,
+  ownerEmail: true,
+  ownerPhone: true,
   status: true,
   notes: true,
   _count: { select: { subProperties: true, utilityAccounts: true } },
@@ -43,6 +51,10 @@ type PropertyRow = {
   city: string;
   country: string;
   type: PropertyType;
+  customType?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  ownerPhone?: string | null;
   status: PropertyStatus;
   notes: string | null;
   _count: { subProperties: number; utilityAccounts: number };

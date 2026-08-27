@@ -11,6 +11,7 @@ model User {
   name       String
   email      String      @unique
   phone      String?
+  location   String?
   password   String
   role       Role        @default(OWNER)
   accountId  String?     @unique // e.g. DMO-2026-00001 (owners) / MGR-0001 (managers)
@@ -18,6 +19,9 @@ model User {
   themePreference String  @default("dark") // 'dark' | 'light'
   resetToken       String?
   resetTokenExpiry DateTime?
+  // Email & Phone verification
+  emailVerified    Boolean   @default(false)
+  phoneVerified    Boolean   @default(false)
   // For MANAGER accounts: when true, Ask Domi may read the whole portfolio;
   // when false (default), Ask Domi answers are restricted to the manager's
   // granted units, matching the rest of the app.
@@ -26,6 +30,10 @@ model User {
   ownerId    String?
   owner      User?       @relation("OwnerManagers", fields: [ownerId], references: [id])
   managers   User[]      @relation("OwnerManagers")
+  tenantProfile Tenant?  @relation("UserTenantProfile")
+  agentProfile  Agent?   @relation("UserAgentProfile")
+  referredByAgentId String?
+  referredByAgent   Agent? @relation("AgentReferredUsers", fields: [referredByAgentId], references: [id])
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
   portfolios Portfolio[]
@@ -49,6 +57,9 @@ model User {
   auditActions    AuditLog[]       @relation("AuditActor")
   auditLogs       AuditLog[]       @relation("AuditOwner")
   aiConversations AiConversation[] @relation("AiConversations")
+  sentPrivacyRequests     PrivacyRequest[] @relation("SentPrivacyRequests")
+  receivedPrivacyRequests PrivacyRequest[] @relation("ReceivedPrivacyRequests")
+  userOtps        UserOtp[]
 }
 
 // Saved Ask Domi chat threads. `messages` is the conversation array; attachment
@@ -69,6 +80,9 @@ enum Role {
   SUPER_ADMIN
   OWNER
   MANAGER
+  RENTER
+  BOTH
+  AGENT
 }
 
 model Portfolio {
@@ -100,7 +114,13 @@ model Property {
   address     String
   city        String
   country     String
-  type        PropertyType
+  type        PropertyType   @default(RESIDENTIAL)
+  customType  String?        // e.g. Land, Hospital, Hotel, Flat, Villa, Warehouse
+  ownerName   String?        // Owner's full name snapshot
+  ownerEmail  String?        // Owner's email snapshot
+  ownerPhone  String?        // Owner's phone snapshot
+  images      String[]       @default([]) // Up to 5 uploaded property photos
+  listingStatus String       @default("Available now") // "Available now" | "Let" | "Under Offer"
   status      PropertyStatus @default(ACTIVE)
   notes       String?
   latitude    Float?
@@ -119,6 +139,7 @@ model Property {
   expenses    Expense[]
   utilityAccounts UtilityAccount[]
   propertyAccess PropertyAccess[]
+  privacyRequests PrivacyRequest[]
 }
 
 enum PropertyType {
@@ -175,7 +196,8 @@ enum RentableEntityType {
   PROPERTY // whole-building lease (logically maps to a Property row)
   FLOOR    // a floor within a building
   ROOM     // a room within a floor or directly under the property
-  BED      // an individual bed within a shared room
+  OFFICE   // an office space within a floor or directly under the property
+  BED      // an individual bed within a shared room or directly under a floor
 }
 
 model RentableEntity {
@@ -219,6 +241,7 @@ model Tenant {
   password              String?     // bcrypt hash — set by self-registered tenants
   email                 String?     // optional — phone-only tenants may not have email
   phone                 String
+  location              String?     // address or city location
   nationalId            String?
   emergencyContactName  String?
   emergencyContactPhone String?
@@ -229,10 +252,16 @@ model Tenant {
   // Self-registered tenants always have portal access via username+password.
   portalEnabled         Boolean     @default(false)
   selfRegistered        Boolean     @default(false) // true when tenant registered on their own
+  // Rent Reminder settings — owner can disable per-tenant, free feature
+  rentReminderEnabled   Boolean     @default(true)  // owner can set false to stop reminders for this tenant
+  rentReminderDaysBefore Int        @default(5)     // how many days before due date to send reminder
   ownerId               String?     // null until linked to an owner
   owner                 User?       @relation(fields: [ownerId], references: [id])
+  userId                String?     @unique // linked user account if registered as Renter/Both
+  user                  User?       @relation("UserTenantProfile", fields: [userId], references: [id], onDelete: SetNull)
   tenancies             Tenancy[]
   otps                  TenantOtp[]
+  rentReminders         RentReminder[]
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 
@@ -647,4 +676,170 @@ enum ImportStatus {
   COMPLETED
   ROLLED_BACK
   FAILED
+}
+
+// ── Agent & Referral Marketplace ──────────────────────────────────────────
+model Agent {
+  id             String         @id @default(cuid())
+  displayId      String?        @unique // e.g. AG-0001
+  userId         String         @unique
+  user           User           @relation("UserAgentProfile", fields: [userId], references: [id], onDelete: Cascade)
+  agencyName     String?
+  location       String         // Primary operational city / region
+  skills         String[]       @default([]) // e.g. ["Residential Leasing", "Commercial Sales", "Land Deals", "Hospital/Hotel", "Tenant Screening"]
+  commissionRate String         @default("5% per deal") // e.g. "5% of deal", "1 month rent"
+  bio            String?
+  inviteCode     String         @unique // e.g. AGENT-9281 or custom handle
+  rating         Float          @default(5.0)
+  reviewCount    Int            @default(0)
+  totalDeals     Int            @default(0)
+  verified       Boolean        @default(true)
+  phone          String?
+  email          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  invitedUsers   User[]         @relation("AgentReferredUsers")
+  hiringRequests AgentHiring[]
+  deals          AgentDeal[]
+
+  @@index([location])
+  @@index([inviteCode])
+}
+
+enum AgentHiringStatus {
+  PENDING
+  ACCEPTED
+  COMPLETED
+  DECLINED
+}
+
+model AgentHiring {
+  id             String            @id @default(cuid())
+  agentId        String
+  agent          Agent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientUserId   String?
+  clientRole     String            @default("OWNER") // "OWNER" | "RENTER"
+  clientName     String
+  clientPhone    String
+  clientEmail    String?
+  location       String
+  propertyType   String?           // e.g. "Flat", "Land", "Hospital", "Hotel"
+  serviceNeeded  String            // e.g. "Find Tenant", "Find Property", "Sell Land", "Manage Property"
+  budgetOrRent   Float?
+  notes          String?
+  status         AgentHiringStatus @default(PENDING)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([agentId])
+}
+
+model AgentDeal {
+  id               String   @id @default(cuid())
+  agentId          String
+  agent            Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  title            String
+  propertyType     String   // e.g. "Commercial Office", "Residential Flat", "Land"
+  dealType         String   @default("RENTAL") // "RENTAL" | "SALE" | "COMMERCIAL"
+  dealAmount       Float
+  commissionAmount Float
+  clientName       String
+  status           String   @default("COMPLETED")
+  dealDate         DateTime @default(now())
+
+  @@index([agentId])
+}
+
+// ── Privacy-Preserving Direct Request Sending System ─────────────────────────
+// Allows Tenants, Owners, and Agents to send requests (Take Rent, Give Rent, Hire Agent)
+// while keeping sensitive personal contact details masked until the request is accepted.
+model PrivacyRequest {
+  id                String             @id @default(cuid())
+  requestType       PrivacyRequestType
+  
+  senderId          String
+  sender            User               @relation("SentPrivacyRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  senderRole        String             // "TENANT" | "OWNER" | "AGENT"
+  senderName        String
+  senderPhone       String             // Revealed only when status = ACCEPTED
+  senderEmail       String             // Revealed only when status = ACCEPTED
+  
+  receiverId        String
+  receiver          User               @relation("ReceivedPrivacyRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiverRole      String             // "OWNER" | "AGENT" | "TENANT"
+  receiverName      String
+
+  propertyId        String?
+  property          Property?          @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  propertyName      String?
+  location          String             // City / area location
+  propertyType      String?            // Flat, Land, Hospital, Hotel, etc.
+  proposedRentOrFee Float?
+  message           String?
+  
+  status            RequestStatus      @default(PENDING)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+  @@index([location])
+}
+
+enum PrivacyRequestType {
+  RENT_REQUEST // Tenant requests Owner/Agent to take property on rent
+  OFFER_RENT   // Owner/Agent requests Tenant to offer rental space
+  HIRE_AGENT   // Owner or Tenant requests Agent for hiring/brokerage
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
+// ── User Verification OTP (Email & Phone) ──────────────────────────────────
+model UserOtp {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      OtpType  @default(EMAIL_VERIFICATION)
+  target    String   // email address or phone number
+  otpHash   String   // bcrypt hash of 6-digit OTP
+  expiresAt DateTime // 10 minutes from creation
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, target])
+}
+
+enum OtpType {
+  EMAIL_VERIFICATION
+  PHONE_VERIFICATION
+  LOGIN
+  RESET_PASSWORD
+}
+
+// ── Automated Monthly Rent Reminder System ──────────────────────────────────
+model RentReminder {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenancyId    String?
+  ownerId      String
+  targetMonth  String    // e.g. "2026-09"
+  dueDate      DateTime
+  amount       Float
+  channel      String    @default("EMAIL") // "EMAIL" | "SMS" | "BOTH"
+  status       String    @default("SENT")  // "SENT" | "FAILED" | "STOPPED_BY_OWNER"
+  sentAt       DateTime? @default(now())
+  errorMessage String?
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([ownerId])
+  @@index([targetMonth])
 }

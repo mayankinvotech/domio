@@ -8,6 +8,7 @@ import {
   EXPENSE_LEVELS,
   type ExpenseLevel,
 } from '@/lib/expense-types';
+import { CURRENCIES, DEFAULT_CURRENCY } from '@/lib/currencies';
 
 type Initial = {
   id: string;
@@ -55,6 +56,7 @@ export default function ExpenseForm({
   const [unitId, setUnitId] = useState(seed?.subPropertyId ?? '');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
   const [success, setSuccess] = useState(false);
 
   const properties = useMemo(
@@ -172,16 +174,33 @@ export default function ExpenseForm({
         <label htmlFor="amount" className={labelClass}>
           Amount
         </label>
-        <input
-          id="amount"
-          name="amount"
-          type="number"
-          min="0"
-          step="any"
-          required
-          defaultValue={expense?.amount ?? ''}
-          className={inputClass}
-        />
+        <div className="flex overflow-hidden rounded-lg border border-[#312D58] bg-[rgba(255,255,255,0.06)] focus-within:border-zinc-700 focus-within:ring-2 focus-within:ring-zinc-500/20 transition">
+          <select
+            id="currency"
+            name="currency"
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            className="shrink-0 border-r border-[#312D58] bg-[#1a1936] px-2.5 py-2 text-sm font-semibold text-white outline-none cursor-pointer hover:bg-[#232147] transition"
+            style={{ minWidth: '6.5rem' }}
+            aria-label="Currency"
+          >
+            {CURRENCIES.map((c) => (
+              <option key={c.code} value={c.code} className="bg-[#1a1936] text-white">
+                {c.symbol} {c.code}
+              </option>
+            ))}
+          </select>
+          <input
+            id="amount"
+            name="amount"
+            type="number"
+            min="0"
+            step="any"
+            required
+            defaultValue={expense?.amount ?? ''}
+            className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-[#B0B0C8]"
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-1.5">

@@ -94,6 +94,77 @@ export default function TenantsGrid({
     }
   }
 
+  const [reminderLoading, setReminderLoading] = useState<string | null>(null);
+  const [reminderMsg, setReminderMsg] = useState<string | null>(null);
+  const [bulkSending, setBulkSending] = useState(false);
+
+  async function handleToggleReminder(tenantId: string, currentEnabled: boolean) {
+    setReminderLoading(tenantId);
+    try {
+      const res = await fetch(`/api/reminders/tenant/${tenantId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !currentEnabled }),
+      });
+      if (res.ok) {
+        setItems((prev) =>
+          prev.map((t) =>
+            t.id === tenantId ? { ...t, rentReminderEnabled: !currentEnabled } : t,
+          ),
+        );
+        setReminderMsg(
+          !currentEnabled
+            ? '✓ Automated monthly rent reminders enabled for this tenant.'
+            : '✓ Reminders paused manually by owner for this tenant (Free).',
+        );
+        setTimeout(() => setReminderMsg(null), 3500);
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setReminderLoading(null);
+    }
+  }
+
+  async function handleSendReminderNow(tenantId: string) {
+    setReminderLoading(`send-${tenantId}`);
+    try {
+      const res = await fetch(`/api/reminders/tenant/${tenantId}`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setReminderMsg(`✓ ${data.message}`);
+        setTimeout(() => setReminderMsg(null), 4000);
+      } else {
+        setReminderMsg(`⚠️ ${data.error || 'Failed to send reminder'}`);
+        setTimeout(() => setReminderMsg(null), 4000);
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setReminderLoading(null);
+    }
+  }
+
+  async function handleBulkReminders() {
+    setBulkSending(true);
+    try {
+      const res = await fetch('/api/reminders/send-monthly', {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setReminderMsg(`✓ ${data.message}`);
+        setTimeout(() => setReminderMsg(null), 5000);
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setBulkSending(false);
+    }
+  }
+
   function closeConfirm() {
     if (deleting) return;
     setTarget(null);
@@ -304,8 +375,37 @@ export default function TenantsGrid({
         </div>
       </div>
 
-      {/* Search & Swipeable Filter Bar */}
-      <div className="flex flex-col gap-2.5 rounded-xl border border-zinc-200 bg-white p-2.5 sm:p-3 shadow-sm">
+      {/* Automated Monthly Rent Reminder Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-300/70 bg-gradient-to-r from-amber-500/10 via-white to-amber-50/40 p-4 text-xs shadow-xs">
+        <div className="flex items-start gap-2.5">
+          <span className="text-base shrink-0">🔔</span>
+          <div>
+            <p className="font-bold text-zinc-900">
+              Automated Monthly Rent Reminders <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">100% Free</span>
+            </p>
+            <p className="mt-0.5 text-zinc-600">
+              Tenants automatically receive rent reminders via Gmail &amp; SMS before every month. You can manually pause or stop reminders for specific tenants anytime below.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleBulkReminders}
+          disabled={bulkSending}
+          className="shrink-0 rounded-xl bg-zinc-900 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-zinc-800 disabled:opacity-50 transition-all whitespace-nowrap"
+        >
+          {bulkSending ? 'Dispatching…' : '🔔 Send Monthly Reminders to All'}
+        </button>
+      </div>
+
+      {reminderMsg && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-800 animate-in fade-in duration-200">
+          {reminderMsg}
+        </div>
+      )}
+
+      {/* Filter & Search Bar */}
+      <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-2.5 sm:p-3 shadow-sm">
         {/* Search input with 44px thumb touch height */}
         <div className="relative w-full">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-400">
@@ -471,35 +571,31 @@ export default function TenantsGrid({
                   <StatusBadge t={t} />
                 </div>
 
-                {/* Direct Phone Contact Quick Actions */}
-                <div className="mt-2.5 flex items-center gap-2">
+                {/* Direct Phone Contact & Location */}
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
                   {t.phone && (
                     <a
                       href={`tel:${sanitizePhone(t.phone)}`}
                       className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 active:scale-95"
                     >
-                      <span>📞</span> Call
-                    </a>
-                  )}
-                  {t.phone && (
-                    <a
-                      href={`https://wa.me/${sanitizePhone(t.phone)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 active:scale-95"
-                    >
-                      <span>💬</span> WhatsApp
+                      <span>📞</span> {t.phone}
                     </a>
                   )}
                   {t.email && (
                     <a
                       href={`mailto:${t.email}`}
-                      className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-medium text-zinc-600 transition-colors hover:text-zinc-900 active:scale-95 truncate max-w-[110px]"
+                      className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-medium text-zinc-600 transition-colors hover:text-zinc-900 active:scale-95 truncate max-w-[130px]"
                     >
-                      <span>✉️</span> Email
+                      <span>✉️</span> {t.email}
                     </a>
                   )}
                 </div>
+
+                {t.location && (
+                  <p className="mt-1.5 flex items-center gap-1 text-[11px] text-zinc-500 truncate">
+                    <span>📍</span> {t.location}
+                  </p>
+                )}
 
                 {/* Ledger Details List */}
                 <dl className="mt-3 space-y-1.5 border-t border-zinc-100 pt-2.5 text-xs sm:text-sm">
@@ -509,10 +605,18 @@ export default function TenantsGrid({
                       {unitLabel(t)}
                     </dd>
                   </div>
+                  {t.currentTenancy && (
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-zinc-500">Monthly Rent</dt>
+                      <dd className="font-mono font-bold text-zinc-800">
+                        ${t.currentTenancy.monthlyRent.toLocaleString()}/mo
+                      </dd>
+                    </div>
+                  )}
                   <div className="flex justify-between gap-2">
-                    <dt className="text-zinc-500">Overdue Dues</dt>
-                    <dd className={`font-mono font-bold ${t.overdueAmount > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                      {t.overdueAmount > 0 ? `$${t.overdueAmount.toLocaleString()}` : '$0.00 (Current)'}
+                    <dt className="text-zinc-500">Remaining Rent</dt>
+                    <dd className={`font-mono font-bold ${t.remainingRent > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                      {t.remainingRent > 0 ? `$${t.remainingRent.toLocaleString()} due` : '$0.00 (All Paid)'}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-2">
@@ -522,6 +626,47 @@ export default function TenantsGrid({
                     </dd>
                   </div>
                 </dl>
+                {/* Monthly Rent Reminder Toggle Row (Free feature) */}
+                <div className="mt-3 flex items-center justify-between rounded-xl border border-zinc-100 bg-zinc-50/80 p-2.5 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">🔔</span>
+                    <div>
+                      <span className="font-bold text-zinc-800">Monthly Reminder</span>
+                      <p className="text-[10px] text-zinc-400">
+                        {t.rentReminderEnabled ? 'Active (auto-sent)' : 'Paused by owner'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleReminder(t.id, t.rentReminderEnabled)}
+                      disabled={reminderLoading === t.id}
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition-all ${
+                        t.rentReminderEnabled
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          : 'border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100'
+                      }`}
+                    >
+                      {reminderLoading === t.id
+                        ? '…'
+                        : t.rentReminderEnabled
+                          ? 'ON ✓'
+                          : 'PAUSED'}
+                    </button>
+                    {t.currentTenancy && (
+                      <button
+                        type="button"
+                        onClick={() => handleSendReminderNow(t.id)}
+                        disabled={reminderLoading === `send-${t.id}`}
+                        title="Send rent reminder right now"
+                        className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[10px] font-bold text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
+                      >
+                        {reminderLoading === `send-${t.id}` ? 'Sending…' : 'Send Now'}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Card Actions */}
@@ -554,15 +699,15 @@ export default function TenantsGrid({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="border-b border-zinc-200 bg-zinc-50 font-mono text-xs uppercase tracking-wider text-zinc-500">
               <tr>
                 <th className="px-5 py-3.5 font-bold">Tenant</th>
-                <th className="px-5 py-3.5 font-bold">ID</th>
+                <th className="px-5 py-3.5 font-bold">Location</th>
                 <th className="px-5 py-3.5 font-bold">Unit</th>
                 <th className="px-5 py-3.5 font-bold">Phone / Email</th>
-                <th className="px-5 py-3.5 font-bold">Overdue</th>
-                <th className="px-5 py-3.5 font-bold">Total Paid</th>
+                <th className="px-5 py-3.5 font-bold">Remaining Rent</th>
+                <th className="px-5 py-3.5 font-bold">Monthly Reminders</th>
                 <th className="px-5 py-3.5 font-bold">Status</th>
                 <th className="px-5 py-3.5 text-right font-bold">Actions</th>
               </tr>
@@ -582,9 +727,14 @@ export default function TenantsGrid({
                     >
                       {t.name}
                     </Link>
+                    {t.displayId && (
+                      <p className="font-mono text-[10px] text-zinc-400">
+                        {t.displayId}
+                      </p>
+                    )}
                   </td>
-                  <td className="px-5 py-3 font-mono text-xs text-zinc-400 font-medium">
-                    {t.displayId ?? '—'}
+                  <td className="px-5 py-3 text-xs text-zinc-600">
+                    {t.location ? `📍 ${t.location}` : '—'}
                   </td>
                   <td className="px-5 py-3 font-medium text-zinc-800">
                     {unitLabel(t)}
@@ -594,12 +744,35 @@ export default function TenantsGrid({
                     <p className="text-zinc-500 truncate max-w-[160px]">{t.email || '—'}</p>
                   </td>
                   <td className="px-5 py-3 font-mono font-bold">
-                    <span className={t.overdueAmount > 0 ? 'text-red-600' : 'text-emerald-600'}>
-                      {t.overdueAmount > 0 ? `$${t.overdueAmount.toLocaleString()}` : '$0'}
+                    <span className={t.remainingRent > 0 ? 'text-amber-600' : 'text-emerald-600'}>
+                      {t.remainingRent > 0 ? `$${t.remainingRent.toLocaleString()}` : '$0 (Paid)'}
                     </span>
                   </td>
-                  <td className="px-5 py-3 font-mono font-bold text-zinc-900">
-                    ${t.totalPaid.toLocaleString()}
+                  <td className="px-5 py-3 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleReminder(t.id, t.rentReminderEnabled)}
+                        disabled={reminderLoading === t.id}
+                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                          t.rentReminderEnabled
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-zinc-100 text-zinc-500'
+                        }`}
+                      >
+                        {t.rentReminderEnabled ? '🔔 ON' : 'PAUSED'}
+                      </button>
+                      {t.currentTenancy && (
+                        <button
+                          type="button"
+                          onClick={() => handleSendReminderNow(t.id)}
+                          disabled={reminderLoading === `send-${t.id}`}
+                          className="text-[10px] font-semibold text-zinc-600 hover:text-zinc-900 underline"
+                        >
+                          Send Now
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="px-5 py-3">
                     <StatusBadge t={t} />

@@ -18,14 +18,12 @@ const TYPE_LABELS: Record<PortfolioType, string> = {
   INDUSTRIAL: 'Industrial',
 };
 
-// AverIQ brand badge classes per type.
-// Lavender (violet) for RESIDENTIAL & COMMERCIAL, Gold for MIXED, muted for INDUSTRIAL.
+// Domio brand badge classes per type.
 const TYPE_BADGE: Record<PortfolioType, string> = {
-  RESIDENTIAL: 'border border-[#5B4FE8]/30 bg-[#5B4FE8]/15 text-[#8B6FE8]',
-  COMMERCIAL: 'border border-[#5B4FE8]/30 bg-[#5B4FE8]/15 text-[#8B6FE8]',
-  MIXED:
-    'border border-[rgba(232,160,32,0.3)] bg-[rgba(232,160,32,0.12)] text-[#E8A020]',
-  INDUSTRIAL: 'border border-[#312D58] bg-[rgba(255,255,255,0.06)] text-[#E8E8F2]',
+  RESIDENTIAL: 'border border-blue-200 bg-blue-50 text-blue-700',
+  COMMERCIAL: 'border border-indigo-200 bg-indigo-50 text-indigo-700',
+  MIXED: 'border border-purple-200 bg-purple-50 text-purple-700',
+  INDUSTRIAL: 'border border-amber-200 bg-amber-50 text-amber-800',
 };
 
 export function portfolioTypeLabel(type: PortfolioType): string {

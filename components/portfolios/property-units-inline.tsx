@@ -195,7 +195,7 @@ export default function PropertyUnitsInline({
 
   return (
     <div
-      className="mt-3 rounded-xl border border-zinc-200 bg-[#0E0C22]"
+      className="mt-3 rounded-2xl border border-zinc-200/80 bg-zinc-50/70 p-3.5"
       data-testid={`prop-inline-${propertyId}`}
       data-expanded={expanded}
     >
@@ -204,39 +204,64 @@ export default function PropertyUnitsInline({
         onClick={toggle}
         aria-expanded={expanded}
         data-testid="prop-inline-toggle"
-        className="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-zinc-50"
+        className="flex w-full items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white px-4 py-3 text-left shadow-xs transition-all hover:border-zinc-300 hover:shadow-sm"
       >
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span className="text-sm font-semibold text-white">{name}</span>
-          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500">
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+          <span className="text-sm font-bold text-zinc-900">{name}</span>
+          <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-[10px] font-semibold text-zinc-700">
             {propertyTypeLabel(type)}
           </span>
           <span
             className={
-              'text-xs font-medium ' +
-              (occupiedCount === unitCount ? 'text-zinc-500' : 'text-[#E8A020]')
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ' +
+              (occupiedCount === unitCount
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-amber-50 text-amber-700')
             }
           >
+            <span
+              className={
+                'h-1.5 w-1.5 rounded-full ' +
+                (occupiedCount === unitCount ? 'bg-emerald-500' : 'bg-amber-500')
+              }
+            />
             {occupiedCount}/{unitCount} occupied
           </span>
-          <span className="text-xs text-[#6A6A8A]">
+          <span className="text-xs font-medium text-zinc-500">
             · {formatMoney(expectedRent)}/mo expected
           </span>
         </span>
-        <svg
-          width="16" height="16" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden
-          className={'shrink-0 text-zinc-500 transition-transform ' + (expanded ? 'rotate-180' : '')}
-        >
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-zinc-500 hidden sm:inline">
+            {expanded ? 'Hide Units' : 'Show Units'}
+          </span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className={
+              'shrink-0 text-zinc-500 transition-transform duration-200 ' +
+              (expanded ? 'rotate-180 text-zinc-900' : '')
+            }
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </div>
       </button>
 
       {expanded && (
-        <div className="border-t border-zinc-200 p-4">
-          <p className="mb-3 text-xs text-[#6A6A8A]">
-            Drag cards within or between sections, then save your layout.
-          </p>
+        <div className="mt-3 space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <p className="text-xs text-zinc-500">
+              Drag unit cards within or between sections to organize, then save your layout.
+            </p>
+          </div>
 
           <div className="space-y-3">
             {sections.map((section) => (
@@ -257,10 +282,10 @@ export default function PropertyUnitsInline({
                   }
                   endDrag();
                 }}
-                className="rounded-lg border border-[#312D58] bg-[#17152F] p-3"
+                className="rounded-xl border border-zinc-200/90 bg-white p-3.5 shadow-xs"
               >
                 {/* Section header: editable label + remove (empty only) */}
-                <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="mb-2.5 flex items-center justify-between gap-2 border-b border-zinc-100 pb-2">
                   {editing === section.id ? (
                     <input
                       autoFocus
@@ -274,16 +299,19 @@ export default function PropertyUnitsInline({
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                         if (e.key === 'Escape') setEditing(null);
                       }}
-                      className="rounded-md border border-zinc-700 bg-[rgba(255,255,255,0.06)] px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-white outline-none"
+                      className="rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white"
                     />
                   ) : (
                     <button
                       type="button"
                       onClick={() => setEditing(section.id)}
                       data-testid="section-label"
-                      className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 hover:text-white"
+                      className="group flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-700 hover:text-zinc-900"
                     >
-                      {section.label}
+                      <span>{section.label}</span>
+                      <span className="text-[10px] text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        ✎
+                      </span>
                     </button>
                   )}
                   {section.unitIds.length === 0 && (
@@ -291,19 +319,19 @@ export default function PropertyUnitsInline({
                       type="button"
                       onClick={() => removeSection(section.id)}
                       data-testid="section-remove"
-                      className="text-[11px] font-medium text-red-400 hover:text-red-300"
+                      className="text-xs font-semibold text-rose-600 hover:text-rose-700"
                     >
-                      Remove
+                      Remove Section
                     </button>
                   )}
                 </div>
 
                 {section.unitIds.length === 0 ? (
-                  <p className="rounded-md border border-dashed border-[#312D58] py-4 text-center text-xs text-[#6A6A8A]">
-                    Drop cards here
+                  <p className="rounded-lg border border-dashed border-zinc-200 py-6 text-center text-xs font-medium text-zinc-400">
+                    Drop unit cards here
                   </p>
                 ) : (
-                  <div className="flex flex-wrap items-stretch gap-2">
+                  <div className="flex flex-wrap items-stretch gap-2.5">
                     {section.unitIds.map((uid, i) => {
                       const u = unitById.get(uid);
                       if (!u) return null;
@@ -314,7 +342,10 @@ export default function PropertyUnitsInline({
                       return (
                         <div key={uid} className="flex items-stretch gap-2">
                           {showBar && (
-                            <div className="w-1 shrink-0 self-stretch rounded bg-zinc-900" data-testid="drop-indicator" />
+                            <div
+                              className="w-1 shrink-0 self-stretch rounded bg-zinc-900 animate-pulse"
+                              data-testid="drop-indicator"
+                            />
                           )}
                           <UnitCard
                             unit={u}
@@ -350,12 +381,12 @@ export default function PropertyUnitsInline({
           </div>
 
           {/* Controls */}
-          <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 pt-1">
             <button
               type="button"
               onClick={addSection}
               data-testid="add-section"
-              className="rounded-full border border-zinc-200 bg-zinc-900/15 px-3 py-1 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-900/25"
+              className="rounded-full border border-zinc-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-700 shadow-xs transition-all hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-900"
             >
               + Add section
             </button>
@@ -364,12 +395,12 @@ export default function PropertyUnitsInline({
               onClick={saveLayout}
               disabled={saving}
               data-testid="save-layout"
-              className="rounded-full bg-zinc-900 px-4 py-1 text-xs font-medium text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white shadow-xs transition-all hover:bg-zinc-800 disabled:opacity-60"
             >
               {saving ? 'Saving…' : 'Save layout'}
             </button>
             {savedMsg && (
-              <span data-testid="layout-saved" className="text-xs font-medium text-emerald-400">
+              <span data-testid="layout-saved" className="text-xs font-semibold text-emerald-600 animate-in fade-in">
                 Layout saved ✓
               </span>
             )}
@@ -413,42 +444,59 @@ function UnitCard({
       onDragOver={onDragOver}
       data-testid="inline-unit-card"
       data-unit-id={unit.id}
-      style={{ border: `2px solid ${borderColor(unit)}` }}
+      style={{ borderLeft: `3.5px solid ${borderColor(unit)}` }}
       className={
-        'flex w-44 cursor-grab flex-col gap-1 rounded-lg bg-[#0E0C22] p-3 ' +
-        'transition-colors hover:bg-zinc-50 active:cursor-grabbing ' +
+        'group flex w-48 cursor-grab flex-col gap-1.5 rounded-xl border border-zinc-200/90 bg-white p-3.5 shadow-xs ' +
+        'transition-all hover:border-zinc-300 hover:shadow-md active:cursor-grabbing ' +
         (dimmed ? 'opacity-40' : '')
       }
     >
-      <div className="flex items-center gap-2">
-        <span
-          className={
-            'h-2 w-2 shrink-0 rounded-full ' +
-            (occupied ? 'bg-emerald-400' : 'bg-[#6A6A8A]')
-          }
-          aria-hidden
-        />
-        <span className="truncate text-sm font-medium text-white">{unit.name}</span>
+      <div className="flex items-center justify-between gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span
+            className={
+              'h-2 w-2 shrink-0 rounded-full ' +
+              (occupied ? 'bg-emerald-500' : 'bg-amber-400')
+            }
+            aria-hidden
+          />
+          <span className="truncate text-sm font-bold text-zinc-900">{unit.name}</span>
+        </div>
+        {unit.unitNumber && (
+          <span className="font-mono text-[10px] font-semibold text-zinc-400">
+            #{unit.unitNumber}
+          </span>
+        )}
       </div>
-      <span className="truncate text-xs text-[#B0B0C8]">
-        {occupied ? (unit.tenantName ?? 'Occupied') : 'Vacant'}
-      </span>
-      <span className="text-xs font-medium text-[#E8A020]">
-        {formatMoney(unit.rentAmount)}/mo
-      </span>
+
+      <div className="flex items-center justify-between text-xs">
+        <span className="truncate text-zinc-500 font-medium">
+          {occupied ? (unit.tenantName ?? 'Occupied') : 'Vacant'}
+        </span>
+        <span className="font-mono font-bold text-zinc-900">
+          {formatMoney(unit.rentAmount)}
+        </span>
+      </div>
+
       {(() => {
         const bi = balanceInfo(unit);
         return bi ? (
-          <span
-            className="text-xs font-medium"
-            style={{ color: bi.color }}
-            data-testid="unit-balance"
-          >
-            {bi.text}
-          </span>
+          <div className="mt-0.5">
+            <span
+              className="inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+              style={{ color: bi.color, backgroundColor: `${bi.color}15` }}
+              data-testid="unit-balance"
+            >
+              {bi.text}
+            </span>
+          </div>
         ) : null;
       })()}
-      <span className="mt-1 text-xs font-medium text-zinc-500">View detail →</span>
+
+      <div className="mt-1 flex items-center justify-between text-[11px] font-semibold text-zinc-400 group-hover:text-zinc-900 transition-colors pt-1 border-t border-zinc-100">
+        <span>View Details</span>
+        <span>→</span>
+      </div>
     </div>
   );
 }

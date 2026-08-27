@@ -30,6 +30,7 @@ const RENTABLE_ENTITY_TYPES: RentableEntityType[] = [
   'PROPERTY',
   'FLOOR',
   'ROOM',
+  'OFFICE',
   'BED',
 ];
 
@@ -41,17 +42,22 @@ export const RENTABLE_ENTITY_TYPE_LABELS: Record<RentableEntityType, string> = {
   PROPERTY: 'Whole Property',
   FLOOR: 'Floor',
   ROOM: 'Room',
+  OFFICE: 'Office',
   BED: 'Bed',
 };
 
-// Valid parent types for each entity type.
-// BED must be under ROOM; ROOM under FLOOR or PROPERTY; FLOOR under PROPERTY;
-// PROPERTY has no parent (it represents the top of the in-tree hierarchy).
+// Flexible Hierarchy — Valid Parent -> Child Relationships:
+// - FLOOR: Property only (floors always hang directly off a property)
+// - ROOM: Property or Floor (skip floor -> room hangs directly off property)
+// - OFFICE: Property or Floor (same skip-level flexibility as Room)
+// - BED: Room or Floor (floor -> bed skips room entirely for dorm/hostel style)
+// - PROPERTY: none (top-level portfolio child)
 export const VALID_PARENT_TYPES: Record<RentableEntityType, RentableEntityType[]> = {
   PROPERTY: [],
   FLOOR: ['PROPERTY'],
-  ROOM: ['FLOOR', 'PROPERTY'],
-  BED: ['ROOM'],
+  ROOM: ['PROPERTY', 'FLOOR'],
+  OFFICE: ['PROPERTY', 'FLOOR'],
+  BED: ['ROOM', 'FLOOR'],
 };
 
 // ── Input parsing ─────────────────────────────────────────────────────────────

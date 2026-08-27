@@ -34,8 +34,8 @@ export default async function NewPropertyPage({
         ]}
       />
 
-      <div className="mt-4 rounded-2xl border border-[#312D58] bg-[#17152F] p-8 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.9)]">
-        <h1 className="mb-6 text-2xl font-semibold tracking-tight text-white">
+      <div className="mt-4 rounded-2xl border border-zinc-200/90 bg-white p-6 sm:p-8 shadow-xs">
+        <h1 className="mb-6 text-xl sm:text-2xl font-bold tracking-tight text-zinc-900">
           Add Property
         </h1>
         <PropertyForm mode="create" portfolioId={portfolioId} />

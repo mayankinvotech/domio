@@ -14,12 +14,11 @@ const STATUS_LABELS: Record<SubPropertyStatus, string> = {
   MAINTENANCE: 'Maintenance',
 };
 
-// AverIQ brand badges — OCCUPIED lavender, VACANT gold, MAINTENANCE red.
+// Domio brand badges — OCCUPIED emerald, VACANT amber, MAINTENANCE rose.
 const STATUS_BADGE: Record<SubPropertyStatus, string> = {
-  OCCUPIED: 'border border-[#5B4FE8]/30 bg-[#5B4FE8]/15 text-[#8B6FE8]',
-  VACANT:
-    'border border-[rgba(232,160,32,0.3)] bg-[rgba(232,160,32,0.12)] text-[#E8A020]',
-  MAINTENANCE: 'border border-red-500/30 bg-red-500/10 text-red-400',
+  OCCUPIED: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+  VACANT: 'border border-amber-200 bg-amber-50 text-amber-700',
+  MAINTENANCE: 'border border-rose-200 bg-rose-50 text-rose-700',
 };
 
 export function subPropertyStatusLabel(status: SubPropertyStatus): string {

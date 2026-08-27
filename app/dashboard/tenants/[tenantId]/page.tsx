@@ -76,10 +76,11 @@ export default async function TenantDetailPage({
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <dl className="rounded-2xl border border-[#312D58] bg-[#17152F] p-6 text-sm">
           <p className="mb-2 text-xs uppercase tracking-wide text-[#8B6FE8]">
-            Contact
+            Contact &amp; Location
           </p>
           <InfoRow label="Email" value={tenant.email} />
           <InfoRow label="Phone" value={tenant.phone} />
+          <InfoRow label="Location" value={tenant.location} />
           <InfoRow label="National ID" value={tenant.nationalId} />
         </dl>
         <dl className="rounded-2xl border border-[#312D58] bg-[#17152F] p-6 text-sm">
@@ -94,11 +95,30 @@ export default async function TenantDetailPage({
       </div>
 
       <div className="mt-4">
-        <PortalAccessCard
-          tenantId={tenant.id}
-          phone={tenant.phone}
-          initialEnabled={tenant.portalEnabled}
-        />
+        {(() => {
+          const activeTenancy = tenant.tenancies.find((t) => t.status === 'ACTIVE') ?? tenant.tenancies[0];
+          const propertyName =
+            activeTenancy?.subProperty?.property
+              ? (activeTenancy.subProperty as any).property.name ?? 'Property'
+              : activeTenancy?.rentableEntity
+                ? (activeTenancy.rentableEntity as any).property?.name ?? 'Property'
+                : 'Property';
+          const unitName =
+            activeTenancy?.subProperty?.name ??
+            activeTenancy?.rentableEntity?.name ??
+            'Unit';
+          return (
+            <PortalAccessCard
+              tenantId={tenant.id}
+              phone={tenant.phone}
+              initialEnabled={tenant.portalEnabled}
+              tenantName={tenant.name}
+              monthlyRent={activeTenancy?.monthlyRent ?? 0}
+              propertyName={propertyName}
+              unitName={unitName}
+            />
+          );
+        })()}
       </div>
 
       <h2 className="mb-3 mt-8 text-lg font-semibold tracking-tight text-white">

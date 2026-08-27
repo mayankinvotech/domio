@@ -34,10 +34,14 @@ export async function generateUnitId(): Promise<string> {
 }
 
 export async function generateRentableEntityId(): Promise<string> {
-  const result = await prisma.$queryRaw<
-    [{ nextval: bigint }]
-  >`SELECT nextval('rentable_entity_seq')`;
-  return `RE-${String(Number(result[0].nextval)).padStart(4, '0')}`;
+  try {
+    const result = await prisma.$queryRaw<
+      [{ nextval: bigint }]
+    >`SELECT nextval('rentable_entity_seq')`;
+    return `RE-${String(Number(result[0].nextval)).padStart(4, '0')}`;
+  } catch {
+    return `RE-${Math.floor(1000 + Math.random() * 9000)}`;
+  }
 }
 
 export async function generateTenantId(): Promise<string> {

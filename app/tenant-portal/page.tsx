@@ -10,7 +10,7 @@ export default async function TenantPortalPage() {
   if (!token) redirect('/tenant-portal/login');
 
   const payload = await verifyTenantJwt(token);
-  if (!payload) redirect('/tenant-portal/login');
+  if (!payload?.sub) redirect('/tenant-portal/login');
 
   return <TenantPortalDashboard />;
 }

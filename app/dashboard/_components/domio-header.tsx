@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import type { Role } from '@prisma/client';
+import GlobalSearchBar from '@/components/search/global-search-bar';
+import VerifyAccountModal from '@/components/auth/verify-account-modal';
 
 function getInitials(name: string, email: string): string {
   if (name?.trim()) {
@@ -29,8 +31,26 @@ export default function DomioHeader({
   const pathname = usePathname();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
 
   const initials = getInitials(name ?? '', email);
+
+  // Poll incoming privacy requests count
+  useEffect(() => {
+    async function fetchPending() {
+      try {
+        const res = await fetch('/api/privacy-requests');
+        if (res.ok) {
+          const data = await res.json();
+          setPendingCount(data.pendingCount ?? 0);
+        }
+      } catch {/* ignore */}
+    }
+    fetchPending();
+    const interval = setInterval(fetchPending, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -50,16 +70,39 @@ export default function DomioHeader({
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#e1e2e3] bg-white">
-      <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         {/* Left: Brand Logo */}
-        <Link href="/dashboard" className="flex items-center gap-1 group">
+        <Link href="/dashboard" className="flex shrink-0 items-center gap-1 group">
           <span className="font-sans text-2xl font-bold tracking-tight text-black transition-colors group-hover:text-zinc-700">
             Domio
           </span>
         </Link>
 
-        {/* Right: User Menu Pill + Mobile Hamburger */}
-        <div className="flex items-center gap-3">
+        {/* Center: Global Owner & Agent Search Bar */}
+        <div className="hidden sm:flex flex-1 max-w-lg">
+          <GlobalSearchBar />
+        </div>
+
+        {/* Right: Requests Bell + User Menu Pill */}
+        <div className="flex items-center gap-2">
+          {/* Requests Inbox Bell */}
+          <Link
+            href="/dashboard/requests"
+            className="relative flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 transition-all hover:border-zinc-300 hover:bg-white hover:text-zinc-900"
+            aria-label="Privacy Requests Inbox"
+            title="Requests Inbox"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            {pendingCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[9px] font-bold text-white shadow">
+                {pendingCount > 9 ? '9+' : pendingCount}
+              </span>
+            )}
+          </Link>
+
           {/* User Menu Pill Dropdown */}
           <div ref={dropdownRef} className="relative">
             <button
@@ -100,6 +143,17 @@ export default function DomioHeader({
                     className="flex items-center gap-2.5 rounded-xl px-3.5 py-2 text-sm text-zinc-700 hover:bg-zinc-100 transition-colors"
                   >
                     <span>🏠</span> Home Overview
+                  </Link>
+                  <Link
+                    href="/dashboard/requests"
+                    className="flex items-center justify-between gap-2.5 rounded-xl px-3.5 py-2 text-sm text-zinc-700 hover:bg-zinc-100 transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5"><span>🔔</span> Privacy Requests</span>
+                    {pendingCount > 0 && (
+                      <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                        {pendingCount}
+                      </span>
+                    )}
                   </Link>
                   <Link
                     href="/dashboard/search"
@@ -167,6 +221,16 @@ export default function DomioHeader({
                       </Link>
                     </>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setVerifyModalOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2 text-sm font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 transition-colors mt-1"
+                  >
+                    <span>🛡️</span> Verify Gmail / Phone (OTP)
+                  </button>
                 </div>
 
                 <div className="border-t border-zinc-100 pt-1.5">
@@ -184,6 +248,12 @@ export default function DomioHeader({
           </div>
         </div>
       </div>
+
+      {/* Verify Account Modal */}
+      <VerifyAccountModal
+        isOpen={verifyModalOpen}
+        onClose={() => setVerifyModalOpen(false)}
+      />
     </header>
   );
 }

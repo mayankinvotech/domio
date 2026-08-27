@@ -8,6 +8,7 @@ type Initial = {
   name: string;
   email: string | null;
   phone: string;
+  location?: string | null;
   nationalId: string | null;
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
@@ -322,6 +323,7 @@ export default function TenantForm({
             <Field id="phone" label="Phone" type="tel" required defaultValue={tenant?.phone} />
             <Field id="email" label="Email" type="email" opt defaultValue={tenant?.email ?? ''} />
           </div>
+          <Field id="location" label="Location / Address" opt defaultValue={tenant?.location ?? ''} />
           <Field id="nationalId" label="National ID" opt defaultValue={tenant?.nationalId ?? ''} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field id="emergencyContactName" label="Secondary Contact Name" opt defaultValue={tenant?.emergencyContactName ?? ''} />

@@ -112,7 +112,7 @@ export default function DomioChatWidget() {
           aria-label="Open Domi AI Assistant"
         >
           <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 text-white shadow-md">
-            <Domi mood="helpful" size={24} />
+            <Domi mood="happy" size={24} />
             <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />

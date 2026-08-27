@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 const inputClass =
-  'w-full rounded-xl border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-4 py-3 text-base text-white outline-none transition placeholder:text-[#4A4A6A] focus:border-zinc-700 focus:ring-2 focus:ring-zinc-500/20';
-const labelClass = 'text-sm font-medium text-[#B0B0C8]';
+  'w-full rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-white focus:bg-white/[0.1] focus:ring-1 focus:ring-white/30';
+const labelClass = 'text-xs font-bold text-zinc-300 uppercase tracking-wider';
 const submitClass =
-  'w-full rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white shadow-[0_0_24px_rgba(91,79,232,0.35)] transition-opacity hover:opacity-90 disabled:opacity-50';
+  'w-full rounded-xl bg-white px-5 py-3 text-sm font-bold text-zinc-950 shadow-md transition-all hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed';
 
 export default function TenantRegisterPage() {
   const router = useRouter();
@@ -55,19 +55,19 @@ export default function TenantRegisterPage() {
   }
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center py-10 px-4">
+    <div className="flex min-h-[80vh] items-center justify-center py-6">
       <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-[#1E1C3A] bg-[#13112A] p-8 shadow-[0_32px_80px_-20px_rgba(0,0,0,0.9)]">
-          <div className="mb-6 flex justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-700 text-3xl shadow-md">
+        {/* Glassmorphic Card (Matching Homepage) */}
+        <div className="rounded-3xl border border-white/20 bg-black/40 p-7 sm:p-9 shadow-2xl backdrop-blur-md">
+          <div className="mb-6 flex flex-col items-center text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/40 bg-blue-950/60 text-2xl shadow-inner mb-3 text-blue-300">
               👤
             </div>
-          </div>
-
-          <div className="mb-6 text-center">
-            <h1 className="text-2xl font-bold text-white">Tenant Self-Registration</h1>
-            <p className="mt-1 text-sm text-[#B0B0C8]">
-              Create your tenant account with a unique username handle so your landlord can easily add you.
+            <h1 className="text-2xl font-black tracking-tight text-white">
+              Tenant Registration
+            </h1>
+            <p className="mt-1 text-xs text-zinc-400">
+              Create your tenant handle so your landlord can assign leases
             </p>
           </div>
 
@@ -77,7 +77,7 @@ export default function TenantRegisterPage() {
                 Unique Username Handle
               </label>
               <div className="relative flex items-center">
-                <span className="absolute left-4 font-mono text-zinc-500">@</span>
+                <span className="absolute left-4 font-mono text-zinc-500 text-sm">@</span>
                 <input
                   id="reg-username"
                   type="text"
@@ -89,8 +89,8 @@ export default function TenantRegisterPage() {
                   autoComplete="username"
                 />
               </div>
-              <p className="text-xs text-[#6A6A8A]">
-                Your unique handle that landlords will use to add you.
+              <p className="text-[11px] text-zinc-500">
+                Landlords will search and assign lease units with this @username.
               </p>
             </div>
 
@@ -110,7 +110,7 @@ export default function TenantRegisterPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="reg-phone" className={labelClass}>
                   Phone Number
@@ -129,7 +129,7 @@ export default function TenantRegisterPage() {
 
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="reg-email" className={labelClass}>
-                  Email <span className="text-[#6A6A8A]">(optional)</span>
+                  Email <span className="text-zinc-500">(optional)</span>
                 </label>
                 <input
                   id="reg-email"
@@ -161,20 +161,20 @@ export default function TenantRegisterPage() {
             </div>
 
             {error && (
-              <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-xs font-semibold text-red-300">
                 {error}
               </p>
             )}
 
             <button type="submit" disabled={pending} className={submitClass + ' mt-2'}>
-              {pending ? 'Registering Account…' : 'Register Tenant Account →'}
+              {pending ? 'Registering Account…' : 'Create Tenant Account →'}
             </button>
           </form>
 
-          <div className="mt-6 border-t border-[#312D58] pt-4 text-center">
-            <p className="text-xs text-[#B0B0C8]">
+          <div className="mt-6 border-t border-white/10 pt-4 text-center">
+            <p className="text-xs text-zinc-400">
               Already have an account?{' '}
-              <Link href="/tenant-portal/login" className="font-semibold text-zinc-500 hover:underline">
+              <Link href="/tenant-portal/login" className="font-bold text-white hover:underline">
                 Sign In Here
               </Link>
             </p>

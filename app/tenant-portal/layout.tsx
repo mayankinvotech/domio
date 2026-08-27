@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import '../globals.css';
 
 export const metadata: Metadata = {
@@ -6,34 +7,71 @@ export const metadata: Metadata = {
   description: 'View your rent history, lease information, and payment status.',
 };
 
-export default function TenantPortalLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function TenantPortalLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#0A0818] text-white">
-      {/* Tenant portal header — minimal, no owner sidebar */}
-      <header className="border-b border-[#1A1A2A] bg-[#0E0C22]">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-900 to-zinc-700 text-sm font-bold text-white shadow-[0_0_16px_rgba(91,79,232,0.4)]">
-              D
-            </div>
-            <span className="text-sm font-semibold tracking-tight text-white">
+    <div className="min-h-screen bg-zinc-950 text-white selection:bg-white selection:text-black flex flex-col justify-between relative overflow-hidden">
+
+      {/* Background architectural texture — same as homepage */}
+      <div
+        className="pointer-events-none fixed inset-0 bg-cover bg-center opacity-25 mix-blend-luminosity z-0"
+        style={{
+          backgroundImage: `radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.8), rgba(9, 9, 11, 0.98)), url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1800&q=80')`,
+        }}
+      />
+
+      {/* Nav bar — exact homepage style */}
+      <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-zinc-950/80 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          {/* Logo — identical to homepage: white bold text + grey pill */}
+          <Link href="/" className="flex items-center gap-2">
+            <span className="font-sans text-2xl font-black tracking-tight text-white">
               Domio
-              <span className="ml-1.5 rounded-full border border-zinc-200 bg-zinc-900/10 px-2 py-0.5 text-[10px] font-medium text-zinc-500">
-                Tenant Portal
-              </span>
             </span>
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-zinc-400">
+              Tenant Portal
+            </span>
+          </Link>
+
+          {/* Nav — same pattern as homepage */}
+          <div className="flex items-center gap-3">
+            <Link
+              href="/search"
+              className="hidden sm:inline-block text-xs font-semibold text-zinc-300 hover:text-white transition-colors"
+            >
+              🔍 Browse Properties
+            </Link>
+            <Link
+              href="/"
+              className="rounded-full px-4 py-1.5 text-xs font-bold text-zinc-300 hover:text-white transition-colors"
+            >
+              ← Home
+            </Link>
+            {/* White pill CTA — identical to "Sign Up Free →" on homepage */}
+            <Link
+              href="/login"
+              className="rounded-full bg-white px-5 py-1.5 text-xs font-bold text-zinc-950 hover:bg-zinc-200 transition-colors shadow-xs"
+            >
+              Owner Login →
+            </Link>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-8">{children}</main>
+      {/* Main content */}
+      <main className="relative z-10 mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
+        {children}
+      </main>
 
-      <footer className="border-t border-[#1A1A2A] bg-[#0E0C22] py-4 text-center text-xs text-[#4A4A6A]">
-        Domio Tenant Portal · Your rental information, securely accessible anytime.
+      {/* Footer — same as homepage */}
+      <footer className="relative z-10 border-t border-white/10 bg-black/50 py-6 text-center text-xs text-zinc-500">
+        <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p>© {new Date().getFullYear()} Domio Real Estate Platform. Tenant Self-Service Portal.</p>
+          <div className="flex items-center gap-4 text-zinc-400">
+            <Link href="/" className="hover:text-white transition-colors">Home</Link>
+            <Link href="/search" className="hover:text-white transition-colors">Property Search</Link>
+            <Link href="/login" className="hover:text-white transition-colors">Owner Login</Link>
+          </div>
+        </div>
       </footer>
     </div>
   );

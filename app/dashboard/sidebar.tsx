@@ -184,6 +184,14 @@ export default function DashboardSidebar({
       ],
     },
     {
+      title: 'AGENTS & MARKETPLACE',
+      items: [
+        { href: '/dashboard/requests', label: '🔔 Requests Inbox', icon: <PeopleIcon /> },
+        { href: '/dashboard/agents', label: 'Hire an Agent', icon: <PeopleIcon /> },
+        { href: '/dashboard/agent', label: 'Work as Agent', icon: <BuildingIcon /> },
+      ],
+    },
+    {
       title: 'ADMIN',
       items: [
         ...(role === 'OWNER' ? [{ href: '/dashboard/managers', label: 'Managers', icon: <PeopleIcon /> }] : []),

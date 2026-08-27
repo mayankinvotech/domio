@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import type { PropertyWithVacantUnits } from '@/lib/tenancies';
+import { CURRENCIES, DEFAULT_CURRENCY } from '@/lib/currencies';
 
 const inputClass =
   'rounded-lg border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-3 py-2 text-sm text-white outline-none transition placeholder:text-[#B0B0C8] focus:border-[#5B4FE8] focus:ring-2 focus:ring-[#5B4FE8]/20';
@@ -30,6 +31,7 @@ export default function AssignForm({
   );
   const [unitId, setUnitId] = useState(units[0]?.id ?? '');
   const [rent, setRent] = useState(String(units[0]?.rentAmount ?? ''));
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -149,17 +151,34 @@ export default function AssignForm({
           <label htmlFor="monthlyRent" className={labelClass}>
             Monthly Rent
           </label>
-          <input
-            id="monthlyRent"
-            name="monthlyRent"
-            type="number"
-            min="0"
-            step="any"
-            required
-            value={rent}
-            onChange={(e) => setRent(e.target.value)}
-            className={inputClass}
-          />
+          <div className="flex overflow-hidden rounded-xl border border-zinc-300 bg-white shadow-xs focus-within:border-zinc-900 focus-within:ring-2 focus-within:ring-zinc-900/10 transition">
+            <select
+              id="currency"
+              name="currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="shrink-0 border-r border-zinc-200 bg-zinc-50 px-2.5 py-2.5 text-sm font-semibold text-zinc-700 outline-none cursor-pointer hover:bg-zinc-100 transition"
+              style={{ minWidth: '6.5rem' }}
+              aria-label="Currency"
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.symbol} {c.code}
+                </option>
+              ))}
+            </select>
+            <input
+              id="monthlyRent"
+              name="monthlyRent"
+              type="number"
+              min="0"
+              step="any"
+              required
+              value={rent}
+              onChange={(e) => setRent(e.target.value)}
+              className="min-w-0 flex-1 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
+            />
+          </div>
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="securityDeposit" className={labelClass}>

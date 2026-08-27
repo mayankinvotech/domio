@@ -27,22 +27,19 @@ const STATUS_LABELS: Record<PropertyStatus, string> = {
   MAINTENANCE: 'Maintenance',
 };
 
-// AverIQ brand badge classes — lavender for RESIDENTIAL/COMMERCIAL,
-// gold for MIXED, muted for INDUSTRIAL.
+// Domio brand badge classes per type.
 const TYPE_BADGE: Record<PropertyType, string> = {
-  RESIDENTIAL: 'border border-[#5B4FE8]/30 bg-[#5B4FE8]/15 text-[#8B6FE8]',
-  COMMERCIAL: 'border border-[#5B4FE8]/30 bg-[#5B4FE8]/15 text-[#8B6FE8]',
-  MIXED:
-    'border border-[rgba(232,160,32,0.3)] bg-[rgba(232,160,32,0.12)] text-[#E8A020]',
-  INDUSTRIAL: 'border border-[#312D58] bg-[rgba(255,255,255,0.06)] text-[#E8E8F2]',
+  RESIDENTIAL: 'border border-blue-200 bg-blue-50 text-blue-700',
+  COMMERCIAL: 'border border-indigo-200 bg-indigo-50 text-indigo-700',
+  MIXED: 'border border-purple-200 bg-purple-50 text-purple-700',
+  INDUSTRIAL: 'border border-amber-200 bg-amber-50 text-amber-800',
 };
 
-// Status badges — ACTIVE lavender, VACANT gold, MAINTENANCE red.
+// Status badges — ACTIVE emerald, VACANT amber, MAINTENANCE rose.
 const STATUS_BADGE: Record<PropertyStatus, string> = {
-  ACTIVE: 'border border-[#5B4FE8]/30 bg-[#5B4FE8]/15 text-[#8B6FE8]',
-  VACANT:
-    'border border-[rgba(232,160,32,0.3)] bg-[rgba(232,160,32,0.12)] text-[#E8A020]',
-  MAINTENANCE: 'border border-red-500/30 bg-red-500/10 text-red-400',
+  ACTIVE: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+  VACANT: 'border border-amber-200 bg-amber-50 text-amber-700',
+  MAINTENANCE: 'border border-rose-200 bg-rose-50 text-rose-700',
 };
 
 export function propertyTypeLabel(type: PropertyType): string {
