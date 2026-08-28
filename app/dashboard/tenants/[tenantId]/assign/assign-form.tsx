@@ -81,7 +81,7 @@ export default function AssignForm({
       return;
     }
     const json = await res.json().catch(() => null);
-    setError(json?.error ?? 'Something went wrong. Please try again.');
+    setError(json?.error || json?.message || `Failed to assign unit (HTTP ${res.status}). Please try again.`);
     setPending(false);
   }
 

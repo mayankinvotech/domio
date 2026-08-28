@@ -60,14 +60,18 @@ export async function POST(req: Request) {
     const deposit = securityDeposit !== undefined && securityDeposit !== '' ? Number(securityDeposit) : 0;
     const day = paymentDayOfMonth ? Math.min(28, Math.max(1, Number(paymentDayOfMonth))) : 1;
 
-    // Verify tenant ownership
+    // Verify tenant exists
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { id: true, ownerId: true },
     });
-    if (!tenant || (tenant.ownerId && tenant.ownerId !== ds.ownerId)) {
-      return NextResponse.json({ error: 'Tenant not found or access denied.' }, { status: 404 });
+    if (!tenant) {
+      return NextResponse.json({ error: 'Tenant not found.' }, { status: 44 });
     }
+
+    const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
+
+    let targetOwnerId = ds.ownerId;
 
     // If unit is a standard SubProperty
     if (subPropertyId) {
@@ -75,9 +79,13 @@ export async function POST(req: Request) {
         where: { id: subPropertyId },
         include: { property: true },
       });
-      if (!unit || unit.property.ownerId !== ds.ownerId) {
-        return NextResponse.json({ error: 'Unit not found or access denied.' }, { status: 404 });
+      if (!unit) {
+        return NextResponse.json({ error: 'Unit not found.' }, { status: 404 });
       }
+      if (!isSuperAdmin && unit.property.ownerId !== ds.ownerId) {
+        return NextResponse.json({ error: 'Access denied for this unit.' }, { status: 403 });
+      }
+      targetOwnerId = unit.property.ownerId;
 
       // Check for active lease
       const existingLease = await prisma.tenancy.findFirst({
@@ -101,9 +109,13 @@ export async function POST(req: Request) {
       const entity = await prisma.rentableEntity.findUnique({
         where: { id: rentableEntityId },
       });
-      if (!entity || entity.ownerId !== ds.ownerId) {
-        return NextResponse.json({ error: 'Rental entity not found or access denied.' }, { status: 404 });
+      if (!entity) {
+        return NextResponse.json({ error: 'Rental entity not found.' }, { status: 404 });
       }
+      if (!isSuperAdmin && entity.ownerId !== ds.ownerId) {
+        return NextResponse.json({ error: 'Access denied for this entity.' }, { status: 403 });
+      }
+      targetOwnerId = entity.ownerId;
 
       // Enforce Ancestor Conflict: Cannot lease sub-unit if parent floor/building is leased
       const ancestorConflict = await checkAncestorLeaseConflict(rentableEntityId, start, end);
@@ -130,6 +142,14 @@ export async function POST(req: Request) {
       }
     }
 
+    // Link tenant to owner if not set
+    if (!tenant.ownerId) {
+      await prisma.tenant.update({
+        where: { id: tenantId },
+        data: { ownerId: targetOwnerId },
+      });
+    }
+
     const displayId = await generateTenancyId();
 
     const tenancy = await prisma.tenancy.create({
@@ -144,7 +164,7 @@ export async function POST(req: Request) {
         securityDeposit: deposit,
         paymentDayOfMonth: day,
         status: 'ACTIVE',
-        ownerId: ds.ownerId,
+        ownerId: targetOwnerId,
       },
     });
 
