@@ -9,6 +9,15 @@ const inputClass =
   'rounded-lg border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-3 py-2 text-sm text-white outline-none transition placeholder:text-[#B0B0C8] focus:border-[#5B4FE8] focus:ring-2 focus:ring-[#5B4FE8]/20';
 const labelClass = 'text-sm font-medium text-[#E8E8F2]';
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+function nextYearISO() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function AssignForm({
   tenantId,
   properties,
@@ -32,6 +41,13 @@ export default function AssignForm({
   const [unitId, setUnitId] = useState(units[0]?.id ?? '');
   const [rent, setRent] = useState(String(units[0]?.rentAmount ?? ''));
   const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
+
+  // Fully controlled date state — never resets on re-render
+  const [startDate, setStartDate] = useState(todayISO);
+  const [endDate, setEndDate] = useState(nextYearISO);
+  const [securityDeposit, setSecurityDeposit] = useState('0');
+  const [paymentDay, setPaymentDay] = useState('1');
+
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -52,11 +68,16 @@ export default function AssignForm({
     event.preventDefault();
     setError(null);
 
-    const d = new FormData(event.currentTarget);
-    const startDate = d.get('startDate') as string;
-    const endDate = d.get('endDate') as string;
-    if (startDate && endDate && new Date(endDate) <= new Date(startDate)) {
-      setError('End date must be after start date');
+    if (!startDate || !endDate) {
+      setError('Start and end dates are required.');
+      return;
+    }
+    if (new Date(endDate) <= new Date(startDate)) {
+      setError('End date must be after start date.');
+      return;
+    }
+    if (!unitId) {
+      setError('Please select a unit.');
       return;
     }
 
@@ -71,11 +92,11 @@ export default function AssignForm({
         tenantId,
         subPropertyId: isEntity ? undefined : unitId,
         rentableEntityId: isEntity ? unitId : undefined,
-        startDate: d.get('startDate'),
-        endDate: d.get('endDate'),
+        startDate,
+        endDate,
         monthlyRent: rent,
-        securityDeposit: d.get('securityDeposit'),
-        paymentDayOfMonth: d.get('paymentDayOfMonth'),
+        securityDeposit,
+        paymentDayOfMonth: paymentDay,
       }),
     });
 
@@ -130,7 +151,7 @@ export default function AssignForm({
         >
           {units.map((u) => (
             <option key={u.id} value={u.id}>
-              Unit {u.unitNumber} — {u.name}
+              {u.unitNumber} — {u.name}
             </option>
           ))}
         </select>
@@ -143,10 +164,10 @@ export default function AssignForm({
           </label>
           <input
             id="startDate"
-            name="startDate"
             type="date"
             required
-            defaultValue={new Date().toISOString().slice(0, 10)}
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
             className={inputClass}
           />
         </div>
@@ -156,14 +177,11 @@ export default function AssignForm({
           </label>
           <input
             id="endDate"
-            name="endDate"
             type="date"
             required
-            defaultValue={(() => {
-              const d = new Date();
-              d.setFullYear(d.getFullYear() + 1);
-              return d.toISOString().slice(0, 10);
-            })()}
+            min={startDate}
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
             className={inputClass}
           />
         </div>
@@ -177,7 +195,6 @@ export default function AssignForm({
           <div className="flex overflow-hidden rounded-xl border border-zinc-300 bg-white shadow-xs focus-within:border-zinc-900 focus-within:ring-2 focus-within:ring-zinc-900/10 transition">
             <select
               id="currency"
-              name="currency"
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
               className="shrink-0 border-r border-zinc-200 bg-zinc-50 px-2.5 py-2.5 text-sm font-semibold text-zinc-700 outline-none cursor-pointer hover:bg-zinc-100 transition"
@@ -192,7 +209,6 @@ export default function AssignForm({
             </select>
             <input
               id="monthlyRent"
-              name="monthlyRent"
               type="number"
               min="0"
               step="any"
@@ -209,11 +225,11 @@ export default function AssignForm({
           </label>
           <input
             id="securityDeposit"
-            name="securityDeposit"
             type="number"
             min="0"
             step="any"
-            defaultValue="0"
+            value={securityDeposit}
+            onChange={(e) => setSecurityDeposit(e.target.value)}
             className={inputClass}
           />
         </div>
@@ -223,13 +239,13 @@ export default function AssignForm({
           </label>
           <input
             id="paymentDayOfMonth"
-            name="paymentDayOfMonth"
             type="number"
             min="1"
             max="28"
             step="1"
-            defaultValue="1"
             required
+            value={paymentDay}
+            onChange={(e) => setPaymentDay(e.target.value)}
             className={inputClass}
           />
         </div>
