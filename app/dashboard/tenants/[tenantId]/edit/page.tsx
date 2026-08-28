@@ -13,7 +13,7 @@ export default async function EditTenantPage({
   if (!session?.user) redirect('/login');
 
   const { tenantId } = await params;
-  const tenant = await getOwnedTenant(tenantId, session.user.id);
+  const tenant = await getOwnedTenant(tenantId, session.user.id, session.user.role);
   if (!tenant) notFound();
 
   return (

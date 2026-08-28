@@ -8,7 +8,11 @@ import Link from 'next/link';
 export default async function TenantsPage() {
   const session = await auth();
   if (!session?.user) redirect('/login');
-  if (session.user.role !== 'OWNER' && session.user.role !== 'MANAGER') {
+  if (
+    session.user.role !== 'OWNER' &&
+    session.user.role !== 'MANAGER' &&
+    session.user.role !== 'SUPER_ADMIN'
+  ) {
     redirect('/dashboard');
   }
 
@@ -16,6 +20,7 @@ export default async function TenantsPage() {
   const tenants = await listTenantsForOwner(
     ds.ownerId,
     ds.isManager ? ds.scope.subPropertyIds : undefined,
+    session.user.role,
   );
 
   const totalTenants = tenants.length;

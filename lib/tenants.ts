@@ -43,19 +43,25 @@ export type TenantListItem = {
 export async function listTenantsForOwner(
   ownerId: string,
   subPropertyIds?: string[],
+  role?: string,
 ): Promise<TenantListItem[]> {
+  const whereClause =
+    role === 'SUPER_ADMIN'
+      ? {}
+      : {
+          ownerId,
+          ...(subPropertyIds
+            ? {
+                tenancies: {
+                  some: { subPropertyId: { in: subPropertyIds }, status: 'ACTIVE' },
+                },
+              }
+            : {}),
+        };
+
   const [rows, docCountRows, balanceRows, rentLedgerPaidRows, rentLedgerDueRows] = await Promise.all([
     prisma.tenant.findMany({
-      where: {
-        ownerId,
-        ...(subPropertyIds
-          ? {
-              tenancies: {
-                some: { subPropertyId: { in: subPropertyIds }, status: 'ACTIVE' },
-              },
-            }
-          : {}),
-      },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,

@@ -24,7 +24,7 @@ export default async function TenantDetailPage({
   if (!session?.user) redirect('/login');
 
   const { tenantId } = await params;
-  const tenant = await getOwnedTenantDetail(tenantId, session.user.id);
+  const tenant = await getOwnedTenantDetail(tenantId, session.user.id, session.user.role);
   if (!tenant) notFound();
 
   const rows: HistoryRow[] = tenant.tenancies.map((t) => {
