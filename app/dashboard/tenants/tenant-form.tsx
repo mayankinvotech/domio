@@ -136,11 +136,12 @@ export default function TenantForm({
 
       if (res.ok) {
         setSuccess(true);
-        const qs = searchParams.toString();
+        const data = await res.json().catch(() => null);
+        const tenantId = data?.id || foundTenant.id;
         setTimeout(() => {
-          router.push(`/dashboard/tenants${qs ? '?' + qs : ''}`);
+          router.push(`/dashboard/tenants/${tenantId}/assign`);
           router.refresh();
-        }, 1000);
+        }, 800);
         return;
       }
 
@@ -201,11 +202,17 @@ export default function TenantForm({
 
     if (res.ok) {
       setSuccess(true);
-      const qs = searchParams.toString();
+      const data = await res.json().catch(() => null);
+      const createdId = data?.id ?? tenant?.id;
       setTimeout(() => {
-        router.push(`/dashboard/tenants${qs ? '?' + qs : ''}`);
+        if (mode === 'create' && createdId) {
+          router.push(`/dashboard/tenants/${createdId}/assign`);
+        } else {
+          const qs = searchParams.toString();
+          router.push(`/dashboard/tenants${qs ? '?' + qs : ''}`);
+        }
         router.refresh();
-      }, 1000);
+      }, 800);
       return;
     }
     const json = await res.json().catch(() => null);
