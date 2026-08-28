@@ -15,6 +15,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
     const ds = await resolveDataScope(session.user);
     const body = await req.json().catch(() => ({}));
 
@@ -29,19 +30,20 @@ export async function POST(req: Request) {
       paymentDayOfMonth,
     } = body;
 
-    if (!tenantId) {
+    // ── Basic validation ───────────────────────────────────────────────────
+    if (!tenantId || typeof tenantId !== 'string') {
       return NextResponse.json({ error: 'Tenant ID is required.' }, { status: 400 });
     }
 
     if (!subPropertyId && !rentableEntityId) {
       return NextResponse.json(
-        { error: 'A valid unit or rentable entity is required.' },
+        { error: 'Please select a unit or property to assign.' },
         { status: 400 },
       );
     }
 
-    const start = startDate ? new Date(startDate) : null;
-    const end = endDate ? new Date(endDate) : null;
+    const start = startDate ? new Date(startDate as string) : null;
+    const end = endDate ? new Date(endDate as string) : null;
     if (!start || Number.isNaN(start.getTime())) {
       return NextResponse.json({ error: 'Valid start date is required.' }, { status: 400 });
     }
@@ -60,7 +62,7 @@ export async function POST(req: Request) {
     const deposit = securityDeposit !== undefined && securityDeposit !== '' ? Number(securityDeposit) : 0;
     const day = paymentDayOfMonth ? Math.min(28, Math.max(1, Number(paymentDayOfMonth))) : 1;
 
-    // Verify tenant exists
+    // ── Verify tenant exists ───────────────────────────────────────────────
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { id: true, ownerId: true },
@@ -69,25 +71,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Tenant not found.' }, { status: 404 });
     }
 
-    const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
+    // targetOwnerId = the unit's actual owner (who we will link the tenancy to)
+    let targetOwnerId: string = ds.ownerId;
 
-    let targetOwnerId = ds.ownerId;
-
-    // If unit is a standard SubProperty
+    // ── Standard SubProperty unit ──────────────────────────────────────────
     if (subPropertyId) {
       const unit = await prisma.subProperty.findUnique({
         where: { id: subPropertyId },
-        include: { property: true },
+        include: { property: { select: { ownerId: true } } },
       });
+
       if (!unit) {
         return NextResponse.json({ error: 'Unit not found.' }, { status: 404 });
       }
-      if (!isSuperAdmin && unit.property.ownerId !== ds.ownerId) {
-        return NextResponse.json({ error: 'Access denied for this unit.' }, { status: 403 });
+
+      // Access check: SUPER_ADMIN can assign any unit; OWNER must own it
+      if (!isSuperAdmin && unit.property.ownerId !== session.user.id) {
+        return NextResponse.json(
+          { error: 'Access denied: this unit belongs to a different owner.' },
+          { status: 403 },
+        );
       }
+
       targetOwnerId = unit.property.ownerId;
 
-      // Check for active lease
+      // Check for overlapping active lease
       const existingLease = await prisma.tenancy.findFirst({
         where: {
           subPropertyId,
@@ -104,17 +112,24 @@ export async function POST(req: Request) {
       }
     }
 
-    // If unit is a hierarchical RentableEntity (Building/Floor/Room/Bed)
+    // ── Hierarchical RentableEntity (Building/Floor/Room/Bed) ────────────
     if (rentableEntityId) {
       const entity = await prisma.rentableEntity.findUnique({
         where: { id: rentableEntityId },
+        select: { id: true, ownerId: true, status: true },
       });
+
       if (!entity) {
         return NextResponse.json({ error: 'Rental entity not found.' }, { status: 404 });
       }
-      if (!isSuperAdmin && entity.ownerId !== ds.ownerId) {
-        return NextResponse.json({ error: 'Access denied for this entity.' }, { status: 403 });
+
+      if (!isSuperAdmin && entity.ownerId !== session.user.id) {
+        return NextResponse.json(
+          { error: 'Access denied: this entity belongs to a different owner.' },
+          { status: 403 },
+        );
       }
+
       targetOwnerId = entity.ownerId;
 
       // Enforce Ancestor Conflict: Cannot lease sub-unit if parent floor/building is leased
@@ -142,13 +157,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // Link tenant to unit owner
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { ownerId: targetOwnerId },
-    });
-
-    const displayId = await generateTenancyId();
+    // ── Create tenancy + update statuses atomically ────────────────────────
+    const displayId = await generateTenancyId().catch(() => null);
 
     const tenancy = await prisma.tenancy.create({
       data: {
@@ -166,7 +176,7 @@ export async function POST(req: Request) {
       },
     });
 
-    // Mark unit/entity as occupied
+    // Mark unit/entity as OCCUPIED
     if (subPropertyId) {
       await prisma.subProperty.update({
         where: { id: subPropertyId },
@@ -180,9 +190,16 @@ export async function POST(req: Request) {
       });
     }
 
+    // Always link tenant to the unit's owner
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { ownerId: targetOwnerId },
+    });
+
     return NextResponse.json({ success: true, tenancyId: tenancy.id }, { status: 201 });
   } catch (error: any) {
-    console.error('[API tenancies POST] Error:', error);
+    console.error('[POST /api/tenancies] Unhandled error:', error?.message ?? error);
+    console.error(error?.stack);
     return NextResponse.json(
       { error: error?.message || 'Failed to create tenancy' },
       { status: 500 },

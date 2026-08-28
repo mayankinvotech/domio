@@ -17,12 +17,14 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
 
+    const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
+
     const tenancy = await prisma.tenancy.findUnique({
       where: { id },
       include: { subProperty: true, rentableEntity: true },
     });
 
-    if (!tenancy || tenancy.ownerId !== ds.ownerId) {
+    if (!tenancy || (!isSuperAdmin && tenancy.ownerId !== session.user.id && tenancy.ownerId !== ds.ownerId)) {
       return NextResponse.json({ error: 'Tenancy not found or access denied.' }, { status: 404 });
     }
 
@@ -98,11 +100,13 @@ export async function DELETE(
     const ds = await resolveDataScope(session.user);
     const { id } = await params;
 
+    const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
+
     const tenancy = await prisma.tenancy.findUnique({
       where: { id },
     });
 
-    if (!tenancy || tenancy.ownerId !== ds.ownerId) {
+    if (!tenancy || (!isSuperAdmin && tenancy.ownerId !== session.user.id && tenancy.ownerId !== ds.ownerId)) {
       return NextResponse.json({ error: 'Tenancy not found or access denied.' }, { status: 404 });
     }
 
