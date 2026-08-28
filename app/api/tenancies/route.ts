@@ -86,9 +86,9 @@ export async function POST(req: Request) {
       }
 
       // Access check: SUPER_ADMIN can assign any unit; OWNER must own it
-      if (!isSuperAdmin && unit.property.ownerId !== session.user.id) {
+      if (!isSuperAdmin && unit.property.ownerId !== ds.ownerId && unit.property.ownerId !== session.user.id) {
         return NextResponse.json(
-          { error: 'Access denied: this unit belongs to a different owner.' },
+          { error: `Access denied: this unit belongs to a different owner (unit owner: ${unit.property.ownerId}, you: ${ds.ownerId}).` },
           { status: 403 },
         );
       }
@@ -123,9 +123,9 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Rental entity not found.' }, { status: 404 });
       }
 
-      if (!isSuperAdmin && entity.ownerId !== session.user.id) {
+      if (!isSuperAdmin && entity.ownerId !== ds.ownerId && entity.ownerId !== session.user.id) {
         return NextResponse.json(
-          { error: 'Access denied: this entity belongs to a different owner.' },
+          { error: `Access denied: this entity belongs to a different owner (entity owner: ${entity.ownerId}, you: ${ds.ownerId}).` },
           { status: 403 },
         );
       }
