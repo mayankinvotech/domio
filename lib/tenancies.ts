@@ -5,6 +5,7 @@ export type VacantUnitOption = {
   unitNumber: string;
   name: string;
   rentAmount: number;
+  isRentableEntity?: boolean;
 };
 
 export type PropertyWithVacantUnits = {
@@ -16,9 +17,11 @@ export type PropertyWithVacantUnits = {
 // Owner's properties each with their currently-VACANT units (for the assign form).
 export async function listVacantUnitsByProperty(
   ownerId: string,
+  role?: string,
 ): Promise<PropertyWithVacantUnits[]> {
+  const whereClause = role === 'SUPER_ADMIN' ? {} : { ownerId };
   const rows = await prisma.property.findMany({
-    where: { ownerId },
+    where: whereClause,
     orderBy: { name: 'asc' },
     select: {
       id: true,
@@ -28,13 +31,36 @@ export async function listVacantUnitsByProperty(
         orderBy: { unitNumber: 'asc' },
         select: { id: true, unitNumber: true, name: true, rentAmount: true },
       },
+      rentableEntities: {
+        where: { status: 'VACANT' },
+        orderBy: { code: 'asc' },
+        select: { id: true, code: true, name: true, rentAmount: true },
+      },
     },
   });
-  return rows.map((p) => ({
-    id: p.id,
-    name: p.name,
-    vacantUnits: p.subProperties,
-  }));
+
+  return rows.map((p) => {
+    const subUnits: VacantUnitOption[] = p.subProperties.map((sp) => ({
+      id: sp.id,
+      unitNumber: sp.unitNumber,
+      name: sp.name,
+      rentAmount: sp.rentAmount,
+      isRentableEntity: false,
+    }));
+    const entityUnits: VacantUnitOption[] = p.rentableEntities.map((re) => ({
+      id: re.id,
+      unitNumber: re.code,
+      name: re.name,
+      rentAmount: re.rentAmount,
+      isRentableEntity: true,
+    }));
+
+    return {
+      id: p.id,
+      name: p.name,
+      vacantUnits: [...subUnits, ...entityUnits],
+    };
+  });
 }
 
 export type ParsedTenancy = {

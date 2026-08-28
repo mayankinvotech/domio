@@ -194,7 +194,7 @@ export async function listTenantsForOwner(
 }
 
 // A single tenant (scalar fields) if owned, for the edit form.
-export async function getOwnedTenant(id: string, ownerId: string) {
+export async function getOwnedTenant(id: string, ownerId: string, role?: string) {
   const tenant = await prisma.tenant.findUnique({
     where: { id },
     select: {
@@ -224,12 +224,13 @@ export async function getOwnedTenant(id: string, ownerId: string) {
       },
     },
   });
-  if (!tenant || tenant.ownerId !== ownerId) return null;
+  if (!tenant) return null;
+  if (role !== 'SUPER_ADMIN' && tenant.ownerId && tenant.ownerId !== ownerId) return null;
   return tenant;
 }
 
 // Tenant + full tenancy history (newest first) for the detail page.
-export async function getOwnedTenantDetail(id: string, ownerId: string) {
+export async function getOwnedTenantDetail(id: string, ownerId: string, role?: string) {
   const tenant = await prisma.tenant.findUnique({
     where: { id },
     select: {
@@ -277,7 +278,8 @@ export async function getOwnedTenantDetail(id: string, ownerId: string) {
       },
     },
   });
-  if (!tenant || tenant.ownerId !== ownerId) return null;
+  if (!tenant) return null;
+  if (role !== 'SUPER_ADMIN' && tenant.ownerId && tenant.ownerId !== ownerId) return null;
   return tenant;
 }
 

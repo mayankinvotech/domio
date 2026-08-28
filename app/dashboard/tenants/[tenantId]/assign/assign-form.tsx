@@ -61,12 +61,16 @@ export default function AssignForm({
     }
 
     setPending(true);
+    const selectedUnit = units.find((u) => u.id === unitId);
+    const isEntity = selectedUnit?.isRentableEntity ?? false;
+
     const res = await fetch('/api/tenancies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         tenantId,
-        subPropertyId: unitId,
+        subPropertyId: isEntity ? undefined : unitId,
+        rentableEntityId: isEntity ? unitId : undefined,
         startDate: d.get('startDate'),
         endDate: d.get('endDate'),
         monthlyRent: rent,

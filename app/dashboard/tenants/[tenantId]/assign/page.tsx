@@ -14,10 +14,11 @@ export default async function AssignTenantPage({
   if (!session?.user) redirect('/login');
 
   const { tenantId } = await params;
-  const tenant = await getOwnedTenant(tenantId, session.user.id);
+  const tenant = await getOwnedTenant(tenantId, session.user.id, session.user.role);
   if (!tenant) notFound();
 
-  const properties = await listVacantUnitsByProperty(session.user.id);
+  const targetOwnerId = tenant.ownerId || session.user.id;
+  const properties = await listVacantUnitsByProperty(targetOwnerId, session.user.role);
 
   return (
     <div className="mx-auto max-w-xl">
