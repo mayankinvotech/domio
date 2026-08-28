@@ -140,13 +140,31 @@ export default function AssignForm({
           <label htmlFor="startDate" className={labelClass}>
             Start Date
           </label>
-          <input id="startDate" name="startDate" type="date" required className={inputClass} />
+          <input
+            id="startDate"
+            name="startDate"
+            type="date"
+            required
+            defaultValue={new Date().toISOString().slice(0, 10)}
+            className={inputClass}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="endDate" className={labelClass}>
             End Date
           </label>
-          <input id="endDate" name="endDate" type="date" required className={inputClass} />
+          <input
+            id="endDate"
+            name="endDate"
+            type="date"
+            required
+            defaultValue={(() => {
+              const d = new Date();
+              d.setFullYear(d.getFullYear() + 1);
+              return d.toISOString().slice(0, 10);
+            })()}
+            className={inputClass}
+          />
         </div>
       </div>
 

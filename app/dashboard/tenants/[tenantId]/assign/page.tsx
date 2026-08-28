@@ -17,8 +17,8 @@ export default async function AssignTenantPage({
   const tenant = await getOwnedTenant(tenantId, session.user.id, session.user.role);
   if (!tenant) notFound();
 
-  const targetOwnerId = tenant.ownerId || session.user.id;
-  const properties = await listVacantUnitsByProperty(targetOwnerId, session.user.role);
+  // Always query vacant units for the logged-in owner/manager so they assign their own properties
+  const properties = await listVacantUnitsByProperty(session.user.id, session.user.role);
 
   return (
     <div className="mx-auto max-w-xl">

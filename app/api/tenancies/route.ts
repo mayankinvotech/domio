@@ -66,7 +66,7 @@ export async function POST(req: Request) {
       select: { id: true, ownerId: true },
     });
     if (!tenant) {
-      return NextResponse.json({ error: 'Tenant not found.' }, { status: 44 });
+      return NextResponse.json({ error: 'Tenant not found.' }, { status: 404 });
     }
 
     const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
@@ -142,13 +142,11 @@ export async function POST(req: Request) {
       }
     }
 
-    // Link tenant to owner if not set
-    if (!tenant.ownerId) {
-      await prisma.tenant.update({
-        where: { id: tenantId },
-        data: { ownerId: targetOwnerId },
-      });
-    }
+    // Link tenant to unit owner
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { ownerId: targetOwnerId },
+    });
 
     const displayId = await generateTenancyId();
 
