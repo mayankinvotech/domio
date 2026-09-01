@@ -165,6 +165,7 @@ export default function TenantForm({
       name: d.get('name'),
       email: d.get('email'),
       phone: d.get('phone'),
+      location: d.get('location'),
       nationalId: d.get('nationalId'),
       emergencyContactName: d.get('emergencyContactName'),
       emergencyContactPhone: d.get('emergencyContactPhone'),

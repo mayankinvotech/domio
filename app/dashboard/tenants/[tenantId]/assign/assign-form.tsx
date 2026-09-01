@@ -77,45 +77,60 @@ export default function AssignForm({
       return;
     }
     if (!unitId) {
-      setError('Please select a unit.');
+      setError('Please select a vacant unit to assign.');
+      return;
+    }
+
+    const rentNum = Number(rent);
+    if (!Number.isFinite(rentNum) || rentNum < 0) {
+      setError('Please enter a valid monthly rent amount.');
       return;
     }
 
     setPending(true);
-    const selectedUnit = units.find((u) => u.id === unitId);
+    const allVacantUnits = available.flatMap((p) => p.vacantUnits);
+    const selectedUnit = allVacantUnits.find((u) => u.id === unitId) ?? units.find((u) => u.id === unitId);
     const isEntity = selectedUnit?.isRentableEntity ?? false;
 
-    const res = await fetch('/api/tenancies', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tenantId,
-        subPropertyId: isEntity ? undefined : unitId,
-        rentableEntityId: isEntity ? unitId : undefined,
-        startDate,
-        endDate,
-        monthlyRent: rent,
-        securityDeposit,
-        paymentDayOfMonth: paymentDay,
-      }),
-    });
+    try {
+      const res = await fetch('/api/tenancies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          subPropertyId: isEntity ? undefined : unitId,
+          rentableEntityId: isEntity ? unitId : undefined,
+          startDate,
+          endDate,
+          monthlyRent: rentNum,
+          securityDeposit: securityDeposit ? Number(securityDeposit) : 0,
+          paymentDayOfMonth: paymentDay ? Number(paymentDay) : 1,
+        }),
+      });
 
-    if (res.ok) {
-      router.push(`/dashboard/tenants/${tenantId}`);
-      router.refresh();
-      return;
+      if (res.ok) {
+        router.push(`/dashboard/tenants/${tenantId}`);
+        router.refresh();
+        return;
+      }
+      const json = await res.json().catch(() => null);
+      const msg = json?.error || json?.message || 'Failed to assign unit. Please try again.';
+      setError(msg);
+    } catch {
+      setError('Network error occurred. Please check your connection and try again.');
+    } finally {
+      setPending(false);
     }
-    const json = await res.json().catch(() => null);
-    const msg = json?.error || json?.message || 'No error details from server';
-    setError(`Error ${res.status}: ${msg}`);
-    setPending(false);
   }
 
   if (available.length === 0) {
     return (
-      <p className="rounded-lg border border-[#312D58] bg-[rgba(255,255,255,0.04)] px-4 py-3 text-sm text-[#B0B0C8]">
-        No vacant units available. Add a unit or free one up first.
-      </p>
+      <div className="rounded-xl border border-[#312D58] bg-[rgba(255,255,255,0.04)] p-6 text-center">
+        <p className="text-base font-semibold text-white">No Vacant Units Available</p>
+        <p className="mt-1 text-sm text-[#B0B0C8]">
+          All units across your properties are currently occupied. Add a new unit or terminate an existing lease to make a unit vacant.
+        </p>
+      </div>
     );
   }
 
@@ -123,7 +138,7 @@ export default function AssignForm({
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <label htmlFor="property" className={labelClass}>
-          Property
+          Select Property
         </label>
         <select
           id="property"
@@ -132,8 +147,8 @@ export default function AssignForm({
           className={inputClass}
         >
           {available.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
+            <option key={p.id} value={p.id} className="bg-[#17152F] text-white">
+              {p.name} ({p.vacantUnits.length} vacant {p.vacantUnits.length === 1 ? 'unit' : 'units'})
             </option>
           ))}
         </select>
@@ -141,7 +156,7 @@ export default function AssignForm({
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="unit" className={labelClass}>
-          Unit <span className="text-[#B0B0C8]">(vacant only)</span>
+          Unit <span className="text-[#B0B0C8] font-normal">(vacant only)</span>
         </label>
         <select
           id="unit"
@@ -150,8 +165,8 @@ export default function AssignForm({
           className={inputClass}
         >
           {units.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.unitNumber} — {u.name}
+            <option key={u.id} value={u.id} className="bg-[#17152F] text-white">
+              {u.unitNumber} — {u.name} (Listed: ₹{u.rentAmount.toLocaleString()}/mo)
             </option>
           ))}
         </select>
@@ -160,7 +175,7 @@ export default function AssignForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="startDate" className={labelClass}>
-            Start Date
+            Lease Start Date
           </label>
           <input
             id="startDate"
@@ -173,7 +188,7 @@ export default function AssignForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="endDate" className={labelClass}>
-            End Date
+            Lease End Date
           </label>
           <input
             id="endDate"
@@ -192,17 +207,16 @@ export default function AssignForm({
           <label htmlFor="monthlyRent" className={labelClass}>
             Monthly Rent
           </label>
-          <div className="flex overflow-hidden rounded-xl border border-zinc-300 bg-white shadow-xs focus-within:border-zinc-900 focus-within:ring-2 focus-within:ring-zinc-900/10 transition">
+          <div className="flex overflow-hidden rounded-lg border border-[#312D58] bg-[rgba(255,255,255,0.06)] focus-within:border-[#5B4FE8] focus-within:ring-2 focus-within:ring-[#5B4FE8]/20 transition">
             <select
               id="currency"
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="shrink-0 border-r border-zinc-200 bg-zinc-50 px-2.5 py-2.5 text-sm font-semibold text-zinc-700 outline-none cursor-pointer hover:bg-zinc-100 transition"
-              style={{ minWidth: '6.5rem' }}
+              className="shrink-0 border-r border-[#312D58] bg-transparent px-2.5 py-2 text-xs font-semibold text-[#E8E8F2] outline-none cursor-pointer"
               aria-label="Currency"
             >
               {CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
+                <option key={c.code} value={c.code} className="bg-[#17152F] text-white">
                   {c.symbol} {c.code}
                 </option>
               ))}
@@ -215,7 +229,8 @@ export default function AssignForm({
               required
               value={rent}
               onChange={(e) => setRent(e.target.value)}
-              className="min-w-0 flex-1 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
+              className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-[#B0B0C8]"
+              placeholder="Rent amount"
             />
           </div>
         </div>
@@ -231,11 +246,12 @@ export default function AssignForm({
             value={securityDeposit}
             onChange={(e) => setSecurityDeposit(e.target.value)}
             className={inputClass}
+            placeholder="0"
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="paymentDayOfMonth" className={labelClass}>
-            Payment Day (1–28)
+            Payment Due Day (1–28)
           </label>
           <input
             id="paymentDayOfMonth"
@@ -252,17 +268,17 @@ export default function AssignForm({
       </div>
 
       {error && (
-        <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
-          {error}
-        </p>
+        <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs font-medium text-red-300">
+          ⚠️ {error}
+        </div>
       )}
 
       <button
         type="submit"
         disabled={pending || !unitId}
-        className="mt-2 rounded-full bg-gradient-to-r from-[#5B4FE8] to-[#8B6FE8] px-5 py-2.5 text-sm font-medium text-white shadow-[0_0_24px_rgba(91,79,232,0.3)] transition-opacity hover:opacity-90 disabled:opacity-60"
+        className="mt-2 rounded-xl bg-gradient-to-r from-[#5B4FE8] to-[#8B6FE8] py-3 text-sm font-semibold text-white shadow-[0_0_24px_rgba(91,79,232,0.3)] transition-all hover:opacity-90 active:scale-98 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
       >
-        {pending ? 'Assigning…' : 'Assign to Unit'}
+        {pending ? 'Assigning Unit & Creating Lease…' : '✓ Assign Unit & Activate Lease'}
       </button>
     </form>
   );

@@ -1,55 +1,73 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { randomInt } from 'crypto';
+import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { requestUserVerificationOtp } from '@/lib/user-verification';
-import type { OtpType } from '@prisma/client';
+import { sendOtpToPhone } from '@/lib/phone-messaging';
+import { isValidPhone, formatE164Phone } from '@/lib/twilio';
 
 export async function POST(req: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 });
-    }
-
     const body = await req.json().catch(() => ({}));
-    const { type = 'EMAIL_VERIFICATION', target } = body;
+    const { phone, appName = 'Domio' } = body;
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { id: true, email: true, phone: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found.' }, { status: 404 });
-    }
-
-    const targetToUse =
-      target?.trim() ||
-      (type === 'EMAIL_VERIFICATION' ? user.email : user.phone);
-
-    if (!targetToUse) {
+    if (!phone || typeof phone !== 'string' || !isValidPhone(phone)) {
       return NextResponse.json(
-        {
-          error:
-            type === 'EMAIL_VERIFICATION'
-              ? 'No email address found to verify.'
-              : 'No phone number found to verify. Please add a phone number first.',
-        },
+        { error: 'A valid phone number is required (minimum 8 digits).' },
         { status: 400 },
       );
     }
 
-    const result = await requestUserVerificationOtp({
-      userId: user.id,
-      type: type as OtpType,
-      target: targetToUse,
+    const formattedPhone = formatE164Phone(phone);
+    const rawOtp = String(randomInt(100000, 999999));
+    const otpHash = await bcrypt.hash(rawOtp, 10);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    // Invalidate existing unused OTPs for this phone
+    await prisma.userOtp.updateMany({
+      where: { target: formattedPhone, used: false },
+      data: { used: true },
+    }).catch(() => {});
+
+    // Try finding linked user if any
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: formattedPhone },
+          { phone: phone.trim() },
+        ],
+      },
+      select: { id: true },
     });
 
-    return NextResponse.json(result);
+    if (user) {
+      await prisma.userOtp.create({
+        data: {
+          userId: user.id,
+          type: 'PHONE_VERIFICATION',
+          target: formattedPhone,
+          otpHash,
+          expiresAt,
+        },
+      }).catch(() => {});
+    }
+
+    // Dispatch OTP via Twilio SMS & WhatsApp
+    const result = await sendOtpToPhone(formattedPhone, rawOtp, appName);
+
+    return NextResponse.json({
+      success: true,
+      message: result.smsSent
+        ? `Verification OTP sent to ${formattedPhone} via Twilio SMS.`
+        : `Verification OTP generated for ${formattedPhone}.`,
+      smsSent: result.smsSent,
+      whatsappSent: result.whatsappSent,
+      whatsappUrl: result.whatsappUrl,
+      previewOtp: result.previewOtp || rawOtp,
+    });
   } catch (error: any) {
-    console.error('Send OTP error:', error);
+    console.error('[POST /api/auth/otp/send] Error:', error);
     return NextResponse.json(
-      { error: error?.message || 'Failed to send verification code' },
+      { error: error?.message || 'Failed to dispatch verification OTP.' },
       { status: 500 },
     );
   }

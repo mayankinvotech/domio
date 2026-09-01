@@ -31,3 +31,8 @@ export async function authenticate(
     throw error;
   }
 }
+
+export async function authenticateWithGoogle() {
+  await signIn('google', { redirectTo: '/dashboard' });
+}
+

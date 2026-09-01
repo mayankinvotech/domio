@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { PropertyType, SubPropertyStatus } from '@prisma/client';
 import { formatMoney } from '@/lib/tenancy-types';
 import { propertyTypeLabel } from '@/lib/property-types';
+import type { OverviewEntityNode } from '@/lib/portfolio-overview';
 
 export type InlineUnit = {
   id: string;
@@ -87,6 +88,147 @@ function reconcile(saved: Section[], units: InlineUnit[]): Section[] {
   return result.length ? result : defaultSections(units);
 }
 
+// ── Entity type icons & colour maps ──────────────────────────────────────────
+
+const ENTITY_ICONS: Record<string, string> = {
+  PROPERTY: '🏢',
+  FLOOR: '🏗️',
+  ROOM: '🚪',
+  OFFICE: '💼',
+  BED: '🛏️',
+};
+
+const ENTITY_INDENT_PX = 20; // px per depth level
+
+// Recursive entity tree node renderer
+function EntityTreeNode({
+  node,
+  depth,
+  portfolioId,
+  propertyId,
+}: {
+  node: OverviewEntityNode;
+  depth: number;
+  portfolioId: string;
+  propertyId: string;
+}) {
+  const [open, setOpen] = useState(true);
+  const hasChildren = node.children.length > 0;
+  const occupied = node.status === 'OCCUPIED';
+
+  // Status dot colour
+  const dotColor = occupied
+    ? 'bg-emerald-500'
+    : node.status === 'MAINTENANCE'
+    ? 'bg-rose-400'
+    : 'bg-amber-400';
+
+  return (
+    <div>
+      {/* Row */}
+      <div
+        className={
+          'flex items-start gap-2 rounded-xl border transition-all cursor-pointer select-none ' +
+          (occupied
+            ? 'border-emerald-200/70 bg-emerald-50/30 hover:bg-emerald-50/60'
+            : 'border-zinc-200/70 bg-white hover:bg-zinc-50/60')
+        }
+        style={{ marginLeft: `${depth * ENTITY_INDENT_PX}px` }}
+        onClick={() => hasChildren && setOpen((v) => !v)}
+      >
+        {/* Left accent bar */}
+        <div
+          className={
+            'w-1 shrink-0 self-stretch rounded-l-xl ' +
+            (occupied ? 'bg-emerald-500' : 'bg-amber-400')
+          }
+        />
+
+        <div className="flex flex-1 flex-col gap-1 py-2.5 pr-3 min-w-0">
+          {/* Top row: expand toggle + icon + name + rent */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            {/* Expand / collapse arrow */}
+            {hasChildren ? (
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] text-zinc-500 hover:bg-zinc-200 transition">
+                {open ? '▼' : '▶'}
+              </span>
+            ) : (
+              <span className="w-4 shrink-0 text-center text-[10px] text-zinc-300">•</span>
+            )}
+
+            {/* Type icon */}
+            <span className="text-base shrink-0" aria-hidden>
+              {ENTITY_ICONS[node.type] || '📌'}
+            </span>
+
+            {/* Status dot + name */}
+            <span
+              className={
+                'h-2 w-2 shrink-0 rounded-full ' + dotColor
+              }
+              aria-hidden
+            />
+            <span className="truncate text-sm font-bold text-zinc-900">{node.name}</span>
+            <span className="font-mono text-[10px] text-zinc-400 shrink-0">({node.code})</span>
+
+            {/* Effective rent — right-aligned */}
+            <span className="ml-auto shrink-0 font-mono text-sm font-bold text-zinc-900">
+              {formatMoney(node.effectiveRent)}
+            </span>
+          </div>
+
+          {/* Second row: status / tenant + rent breakdown hint */}
+          <div className="flex flex-wrap items-center gap-1.5 pl-9 text-[11px]">
+            {node.activeLease ? (
+              <>
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
+                  👤 {node.activeLease.tenantName}
+                </span>
+                <span className="text-zinc-400">
+                  Lease rent: {formatMoney(node.activeLease.monthlyRent)}/mo
+                </span>
+              </>
+            ) : (
+              <span className="text-zinc-500 font-medium">
+                {occupied ? 'Occupied' : node.status === 'MAINTENANCE' ? '🔧 Maintenance' : 'Vacant'}
+              </span>
+            )}
+
+            {/* For parent nodes show rollup badge */}
+            {hasChildren && (
+              <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 font-semibold text-zinc-600">
+                {node.children.length} {node.children.length === 1 ? 'sub-unit' : 'sub-units'} · rollup: {formatMoney(node.effectiveRent)}
+              </span>
+            )}
+
+            {/* If this is a parent node, show listed rent vs rollup hint */}
+            {hasChildren && node.listedRent > 0 && node.listedRent !== node.effectiveRent && (
+              <span className="text-zinc-400 text-[10px]" title="Listed price ignored because sub-units define the rent">
+                (listed {formatMoney(node.listedRent)} overridden by sub-units)
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Children */}
+      {open && hasChildren && (
+        <div className="mt-1 space-y-1">
+          {node.children.map((child) => (
+            <EntityTreeNode
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              portfolioId={portfolioId}
+              propertyId={propertyId}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PropertyUnitsInline({
   propertyId,
   portfolioId,
@@ -98,6 +240,7 @@ export default function PropertyUnitsInline({
   units,
   initialExpanded,
   initialSections,
+  rentableEntities = [],
 }: {
   propertyId: string;
   portfolioId: string;
@@ -109,6 +252,7 @@ export default function PropertyUnitsInline({
   units: InlineUnit[];
   initialExpanded: boolean;
   initialSections: Section[] | null;
+  rentableEntities?: OverviewEntityNode[];
 }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(initialExpanded);
@@ -125,6 +269,9 @@ export default function PropertyUnitsInline({
   const [savedMsg, setSavedMsg] = useState(false);
 
   const unitById = new Map(units.map((u) => [u.id, u]));
+
+  // Whether we have a hierarchy to render
+  const hasHierarchy = rentableEntities.length > 0;
 
   function toggle() {
     const next = !expanded;
@@ -230,6 +377,11 @@ export default function PropertyUnitsInline({
           <span className="text-xs font-medium text-zinc-500">
             · {formatMoney(expectedRent)}/mo expected
           </span>
+          {hasHierarchy && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200/60 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+              🏗️ Hierarchy
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-zinc-500 hidden sm:inline">
@@ -257,154 +409,202 @@ export default function PropertyUnitsInline({
 
       {expanded && (
         <div className="mt-3 space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <p className="text-xs text-zinc-500">
-              Drag unit cards within or between sections to organize, then save your layout.
-            </p>
-          </div>
+          {/* ── Hierarchy tree (RentableEntity) ──────────────────────────── */}
+          {hasHierarchy && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                  🏗️ Rental Hierarchy
+                </span>
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                  Prices roll up from lowest unit
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {rentableEntities.map((entity) => (
+                  <EntityTreeNode
+                    key={entity.id}
+                    node={entity}
+                    depth={0}
+                    portfolioId={portfolioId}
+                    propertyId={propertyId}
+                  />
+                ))}
+              </div>
 
-          <div className="space-y-3">
-            {sections.map((section) => (
-              <div
-                key={section.id}
-                data-testid="unit-section"
-                data-section-id={section.id}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDropTarget({ sectionId: section.id, beforeUnitId: null });
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const id = dragRef.current;
-                  if (id) {
-                    const t = dropTarget ?? { sectionId: section.id, beforeUnitId: null };
-                    moveUnit(id, t.sectionId, t.beforeUnitId);
-                  }
-                  endDrag();
-                }}
-                className="rounded-xl border border-zinc-200/90 bg-white p-3.5 shadow-xs"
-              >
-                {/* Section header: editable label + remove (empty only) */}
-                <div className="mb-2.5 flex items-center justify-between gap-2 border-b border-zinc-100 pb-2">
-                  {editing === section.id ? (
-                    <input
-                      autoFocus
-                      defaultValue={section.label}
-                      data-testid="section-label-input"
-                      onBlur={(e) => {
-                        rename(section.id, e.target.value.trim() || section.label);
-                        setEditing(null);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                        if (e.key === 'Escape') setEditing(null);
-                      }}
-                      className="rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white"
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setEditing(section.id)}
-                      data-testid="section-label"
-                      className="group flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-700 hover:text-zinc-900"
-                    >
-                      <span>{section.label}</span>
-                      <span className="text-[10px] text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                        ✎
-                      </span>
-                    </button>
-                  )}
-                  {section.unitIds.length === 0 && (
-                    <button
-                      type="button"
-                      onClick={() => removeSection(section.id)}
-                      data-testid="section-remove"
-                      className="text-xs font-semibold text-rose-600 hover:text-rose-700"
-                    >
-                      Remove Section
-                    </button>
-                  )}
-                </div>
-
-                {section.unitIds.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-zinc-200 py-6 text-center text-xs font-medium text-zinc-400">
-                    Drop unit cards here
+              {/* Show flat units below hierarchy if both exist */}
+              {units.length > 0 && (
+                <div className="border-t border-zinc-200/60 pt-2">
+                  <p className="mb-2 px-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    Also: Flat Units
                   </p>
-                ) : (
-                  <div className="flex flex-wrap items-stretch gap-2.5">
-                    {section.unitIds.map((uid, i) => {
-                      const u = unitById.get(uid);
-                      if (!u) return null;
-                      const nextId = section.unitIds[i + 1] ?? null;
-                      const showBar =
-                        dropTarget?.sectionId === section.id &&
-                        dropTarget.beforeUnitId === uid;
-                      return (
-                        <div key={uid} className="flex items-stretch gap-2">
-                          {showBar && (
-                            <div
-                              className="w-1 shrink-0 self-stretch rounded bg-zinc-900 animate-pulse"
-                              data-testid="drop-indicator"
-                            />
-                          )}
-                          <UnitCard
-                            unit={u}
-                            dimmed={dragUnit === uid}
-                            onOpen={() =>
-                              router.push(
-                                `/dashboard/portfolios/${portfolioId}/properties/${propertyId}/units/${uid}`,
-                              )
-                            }
-                            onDragStart={() => {
-                              dragRef.current = uid;
-                              setDragUnit(uid);
-                            }}
-                            onDragEnd={endDrag}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              const r = e.currentTarget.getBoundingClientRect();
-                              const before = e.clientX < r.left + r.width / 2;
-                              setDropTarget({
-                                sectionId: section.id,
-                                beforeUnitId: before ? uid : nextId,
-                              });
-                            }}
-                          />
-                        </div>
-                      );
-                    })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Flat / legacy units (SubProperty drag-and-drop) ──────────── */}
+          {units.length > 0 && (
+            <>
+              {!hasHierarchy && (
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-xs text-zinc-500">
+                    Drag unit cards within or between sections to organize, then save your layout.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {sections.map((section) => (
+                  <div
+                    key={section.id}
+                    data-testid="unit-section"
+                    data-section-id={section.id}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDropTarget({ sectionId: section.id, beforeUnitId: null });
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const id = dragRef.current;
+                      if (id) {
+                        const t = dropTarget ?? { sectionId: section.id, beforeUnitId: null };
+                        moveUnit(id, t.sectionId, t.beforeUnitId);
+                      }
+                      endDrag();
+                    }}
+                    className="rounded-xl border border-zinc-200/90 bg-white p-3.5 shadow-xs"
+                  >
+                    {/* Section header: editable label + remove (empty only) */}
+                    <div className="mb-2.5 flex items-center justify-between gap-2 border-b border-zinc-100 pb-2">
+                      {editing === section.id ? (
+                        <input
+                          autoFocus
+                          defaultValue={section.label}
+                          data-testid="section-label-input"
+                          onBlur={(e) => {
+                            rename(section.id, e.target.value.trim() || section.label);
+                            setEditing(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            if (e.key === 'Escape') setEditing(null);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setEditing(section.id)}
+                          data-testid="section-label"
+                          className="group flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-700 hover:text-zinc-900"
+                        >
+                          <span>{section.label}</span>
+                          <span className="text-[10px] text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                            ✎
+                          </span>
+                        </button>
+                      )}
+                      {section.unitIds.length === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => removeSection(section.id)}
+                          data-testid="section-remove"
+                          className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                        >
+                          Remove Section
+                        </button>
+                      )}
+                    </div>
+
+                    {section.unitIds.length === 0 ? (
+                      <p className="rounded-lg border border-dashed border-zinc-200 py-6 text-center text-xs font-medium text-zinc-400">
+                        Drop unit cards here
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap items-stretch gap-2.5">
+                        {section.unitIds.map((uid, i) => {
+                          const u = unitById.get(uid);
+                          if (!u) return null;
+                          const nextId = section.unitIds[i + 1] ?? null;
+                          const showBar =
+                            dropTarget?.sectionId === section.id &&
+                            dropTarget.beforeUnitId === uid;
+                          return (
+                            <div key={uid} className="flex items-stretch gap-2">
+                              {showBar && (
+                                <div
+                                  className="w-1 shrink-0 self-stretch rounded bg-zinc-900 animate-pulse"
+                                  data-testid="drop-indicator"
+                                />
+                              )}
+                              <UnitCard
+                                unit={u}
+                                dimmed={dragUnit === uid}
+                                onOpen={() =>
+                                  router.push(
+                                    `/dashboard/portfolios/${portfolioId}/properties/${propertyId}/units/${uid}`,
+                                  )
+                                }
+                                onDragStart={() => {
+                                  dragRef.current = uid;
+                                  setDragUnit(uid);
+                                }}
+                                onDragEnd={endDrag}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  const r = e.currentTarget.getBoundingClientRect();
+                                  const before = e.clientX < r.left + r.width / 2;
+                                  setDropTarget({
+                                    sectionId: section.id,
+                                    beforeUnitId: before ? uid : nextId,
+                                  });
+                                }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
+                ))}
+              </div>
+
+              {/* Controls */}
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={addSection}
+                  data-testid="add-section"
+                  className="rounded-full border border-zinc-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-700 shadow-xs transition-all hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-900"
+                >
+                  + Add section
+                </button>
+                <button
+                  type="button"
+                  onClick={saveLayout}
+                  disabled={saving}
+                  data-testid="save-layout"
+                  className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white shadow-xs transition-all hover:bg-zinc-800 disabled:opacity-60"
+                >
+                  {saving ? 'Saving…' : 'Save layout'}
+                </button>
+                {savedMsg && (
+                  <span data-testid="layout-saved" className="text-xs font-semibold text-emerald-600 animate-in fade-in">
+                    Layout saved ✓
+                  </span>
                 )}
               </div>
-            ))}
-          </div>
+            </>
+          )}
 
-          {/* Controls */}
-          <div className="flex flex-wrap items-center gap-2.5 pt-1">
-            <button
-              type="button"
-              onClick={addSection}
-              data-testid="add-section"
-              className="rounded-full border border-zinc-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-700 shadow-xs transition-all hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-900"
-            >
-              + Add section
-            </button>
-            <button
-              type="button"
-              onClick={saveLayout}
-              disabled={saving}
-              data-testid="save-layout"
-              className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white shadow-xs transition-all hover:bg-zinc-800 disabled:opacity-60"
-            >
-              {saving ? 'Saving…' : 'Save layout'}
-            </button>
-            {savedMsg && (
-              <span data-testid="layout-saved" className="text-xs font-semibold text-emerald-600 animate-in fade-in">
-                Layout saved ✓
-              </span>
-            )}
-          </div>
+          {/* Empty state when no units and no hierarchy */}
+          {!hasHierarchy && units.length === 0 && (
+            <div className="rounded-xl border border-dashed border-zinc-200 bg-white py-8 text-center">
+              <p className="text-sm font-medium text-zinc-500">No units added yet.</p>
+            </div>
+          )}
         </div>
       )}
     </div>

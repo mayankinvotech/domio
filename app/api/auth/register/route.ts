@@ -34,6 +34,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!phone || typeof phone !== 'string' || phone.trim().replace(/\D/g, '').length < 8) {
+      return NextResponse.json(
+        { error: 'A valid phone number is mandatory for account creation.' },
+        { status: 400 },
+      );
+    }
+
     if (!password || typeof password !== 'string' || password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters long.' },
@@ -47,17 +54,24 @@ export async function POST(req: Request) {
       : 'OWNER';
 
     const normalisedEmail = email.toLowerCase().trim();
-    const trimmedPhone = phone ? String(phone).trim() : null;
+    const cleanDigits = phone.trim().replace(/\D/g, '');
+    const formattedPhone = phone.trim().startsWith('+') ? phone.trim() : `+${cleanDigits}`;
     const trimmedLocation = location ? String(location).trim() : null;
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: normalisedEmail },
+    // Check if user with this email or phone already exists
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: normalisedEmail },
+          { phone: formattedPhone },
+          { phone: phone.trim() },
+        ],
+      },
     });
 
     if (existingUser) {
       return NextResponse.json(
-        { error: 'An account with this email already exists.' },
+        { error: existingUser.email === normalisedEmail ? 'An account with this email already exists.' : 'An account with this phone number already exists.' },
         { status: 409 },
       );
     }
@@ -75,7 +89,7 @@ export async function POST(req: Request) {
       data: {
         name: name.trim(),
         email: normalisedEmail,
-        phone: trimmedPhone,
+        phone: formattedPhone,
         location: trimmedLocation,
         password: hashedPassword,
         role: chosenRole,
@@ -108,7 +122,7 @@ export async function POST(req: Request) {
           displayId: `TN-${String(tenantCount + 1).padStart(4, '0')}`,
           name: name.trim(),
           email: normalisedEmail,
-          phone: trimmedPhone || '',
+          phone: formattedPhone,
           location: trimmedLocation,
           username,
           password: hashedPassword,

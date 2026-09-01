@@ -115,11 +115,32 @@ export default function UnitsGrid({
 
   // Stats calculation
   const stats = useMemo(() => {
-    const totalUnits = items.length;
+    const hasHierarchy = rentableEntities && rentableEntities.length > 0;
+    
+    // Count leaf nodes or all nodes in hierarchy
+    let hierarchyLeafCount = 0;
+    function countLeaves(nodes: RentableEntityNode[]) {
+      for (const n of nodes) {
+        if (!n.children || n.children.length === 0) {
+          hierarchyLeafCount++;
+        } else {
+          countLeaves(n.children);
+        }
+      }
+    }
+    if (hasHierarchy) {
+      countLeaves(rentableEntities);
+    }
+
+    const totalUnits = hasHierarchy ? hierarchyLeafCount : items.length;
     const occupiedCount = items.filter((u) => u.status === 'OCCUPIED').length;
     const vacantCount = items.filter((u) => u.status === 'VACANT').length;
     const maintenanceCount = items.filter((u) => u.status === 'MAINTENANCE').length;
-    const totalRent = items.reduce((acc, u) => acc + (u.rentAmount || 0), 0);
+    
+    const totalRent = hasHierarchy
+      ? rentableEntities.reduce((acc, r) => acc + (r.aggregatedRent || 0), 0)
+      : items.reduce((acc, u) => acc + (u.rentAmount || 0), 0);
+      
     const occupancyRate = totalUnits > 0 ? Math.round((occupiedCount / totalUnits) * 100) : 0;
 
     return {
@@ -130,7 +151,7 @@ export default function UnitsGrid({
       totalRent,
       occupancyRate,
     };
-  }, [items]);
+  }, [items, rentableEntities]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -463,7 +484,7 @@ export default function UnitsGrid({
                       </Link>
                       {u.status === 'VACANT' && (
                         <Link
-                          href="/dashboard/tenants"
+                          href={`/dashboard/tenants`}
                           className={primaryBtn}
                         >
                           Assign Tenant
@@ -551,7 +572,7 @@ export default function UnitsGrid({
                           </Link>
                           {u.status === 'VACANT' && (
                             <Link
-                              href="/dashboard/tenants"
+                              href={`/dashboard/tenants`}
                               className={primaryBtn}
                             >
                               Assign

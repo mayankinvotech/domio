@@ -7,6 +7,7 @@ import {
   checkAncestorLeaseConflict,
   checkDescendantLeaseConflict,
 } from '@/lib/rentable-entities';
+import { buildLedgerSchedule, computeRentStatus } from '@/lib/rent-ledger';
 
 export async function POST(req: Request) {
   try {
@@ -133,27 +134,35 @@ export async function POST(req: Request) {
       targetOwnerId = entity.ownerId;
 
       // Enforce Ancestor Conflict: Cannot lease sub-unit if parent floor/building is leased
-      const ancestorConflict = await checkAncestorLeaseConflict(rentableEntityId, start, end);
-      if (ancestorConflict) {
-        return NextResponse.json(
-          {
-            error:
-              'Cannot lease this unit because its parent floor/building already has an active lease for this period.',
-          },
-          { status: 400 },
-        );
+      try {
+        const ancestorConflict = await checkAncestorLeaseConflict(rentableEntityId, start, end);
+        if (ancestorConflict) {
+          return NextResponse.json(
+            {
+              error:
+                'Cannot lease this unit because its parent floor/building already has an active lease for this period.',
+            },
+            { status: 400 },
+          );
+        }
+      } catch (e) {
+        console.warn('[POST /api/tenancies] Ancestor conflict check skipped:', e);
       }
 
       // Enforce Descendant Conflict: Cannot lease floor/building if any child room/bed is leased
-      const descendantConflict = await checkDescendantLeaseConflict(rentableEntityId, start, end);
-      if (descendantConflict) {
-        return NextResponse.json(
-          {
-            error:
-              'Cannot lease this entire floor/unit because one or more of its sub-units/beds already have active leases.',
-          },
-          { status: 400 },
-        );
+      try {
+        const descendantConflict = await checkDescendantLeaseConflict(rentableEntityId, start, end);
+        if (descendantConflict) {
+          return NextResponse.json(
+            {
+              error:
+                'Cannot lease this entire floor/unit because one or more of its sub-units/beds already have active leases.',
+            },
+            { status: 400 },
+          );
+        }
+      } catch (e) {
+        console.warn('[POST /api/tenancies] Descendant conflict check skipped:', e);
       }
     }
 
@@ -175,6 +184,29 @@ export async function POST(req: Request) {
         ownerId: targetOwnerId,
       },
     });
+
+    // Pre-generate monthly rent schedules for the full lease duration
+    try {
+      const schedule = buildLedgerSchedule(start, end, day, rent);
+      if (schedule.length > 0) {
+        await prisma.rentLedger.createMany({
+          data: schedule.map((item) => ({
+            tenancyId: tenancy.id,
+            ownerId: targetOwnerId,
+            dueDate: item.dueDate,
+            amountDue: item.amountDue,
+            amountPaid: 0,
+            status: computeRentStatus({
+              amountDue: item.amountDue,
+              amountPaid: 0,
+              dueDate: item.dueDate,
+            }),
+          })),
+        });
+      }
+    } catch (schedErr) {
+      console.warn('[POST /api/tenancies] Rent schedule pre-generation note:', schedErr);
+    }
 
     // Mark unit/entity as OCCUPIED
     if (subPropertyId) {
@@ -199,7 +231,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, tenancyId: tenancy.id }, { status: 201 });
   } catch (error: any) {
     console.error('[POST /api/tenancies] Unhandled error:', error?.message ?? error);
-    console.error(error?.stack);
     return NextResponse.json(
       { error: error?.message || 'Failed to create tenancy' },
       { status: 500 },

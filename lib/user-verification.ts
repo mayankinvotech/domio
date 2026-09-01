@@ -59,11 +59,13 @@ export async function requestUserVerificationOtp({
       previewCode: !emailResult.success ? rawOtp : undefined,
     };
   } else if (type === 'PHONE_VERIFICATION') {
-    const smsResult = await sendOtpSms(target, rawOtp);
+    const smsResult = await sendOtpSms(target, rawOtp, 'Domio');
     return {
       success: true,
-      message: `Verification code sent to ${target} via SMS.`,
-      previewCode: !smsResult.sent ? rawOtp : undefined,
+      message: smsResult.sent
+        ? `Verification code sent to ${target} via Twilio SMS.`
+        : `Verification code generated for ${target}.`,
+      previewCode: !smsResult.sent ? (smsResult.previewOtp || rawOtp) : undefined,
     };
   }
 

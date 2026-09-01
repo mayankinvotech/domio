@@ -28,12 +28,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Tenancy not found or access denied.' }, { status: 404 });
     }
 
-    const { status, monthlyRent, securityDeposit, startDate, endDate } = body;
+    const { status, monthlyRent, securityDeposit, startDate, endDate, paymentDayOfMonth } = body;
 
     const data: Record<string, any> = {};
     if (status) data.status = status;
     if (monthlyRent !== undefined) data.monthlyRent = Number(monthlyRent);
     if (securityDeposit !== undefined) data.securityDeposit = Number(securityDeposit);
+    if (paymentDayOfMonth !== undefined) data.paymentDayOfMonth = Math.min(28, Math.max(1, Number(paymentDayOfMonth)));
     if (startDate) data.startDate = new Date(startDate);
     if (endDate) data.endDate = new Date(endDate);
 

@@ -3,6 +3,7 @@ import type {
   PropertyType,
   PropertyStatus,
   SubPropertyStatus,
+  RentableEntityType,
 } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
@@ -36,6 +37,35 @@ export type OverviewUnit = {
   overdueEntryId: string | null; // oldest overdue ledger entry (for Pay Now)
 };
 
+// ── RentableEntity tree types (for hierarchy display) ──────────────────────────
+
+export type OverviewEntityNode = {
+  id: string;
+  displayId: string | null;
+  type: RentableEntityType;
+  name: string;
+  code: string;
+  areaSqft: number | null;
+  // The price listed when this entity was registered
+  listedRent: number;
+  status: SubPropertyStatus;
+  notes: string | null;
+  sortOrder: number | null;
+  parentId: string | null;
+  // Active lease on this exact node (if any)
+  activeLease: {
+    tenancyId: string;
+    tenantName: string;
+    monthlyRent: number;
+    endDate: Date;
+  } | null;
+  // Effective rent for this node used in rollup:
+  //   - If this node has children → sum of children's effectiveRent
+  //   - If leaf node → activeLease.monthlyRent ?? listedRent
+  effectiveRent: number;
+  children: OverviewEntityNode[];
+};
+
 export type OverviewProperty = {
   id: string;
   displayId: string | null;
@@ -57,6 +87,8 @@ export type OverviewProperty = {
   unitsGroupBy: string;
   unitSections: UnitSection[] | null;
   units: OverviewUnit[];
+  // Hierarchical RentableEntity tree (may be empty if property uses flat SubProperty only)
+  rentableEntities: OverviewEntityNode[];
 };
 
 export type UnitSection = { id: string; label: string; unitIds: string[] };
@@ -96,6 +128,144 @@ function isOverdue(l: LedgerRow, now: Date): boolean {
   );
 }
 
+// ── RentableEntity tree builder ────────────────────────────────────────────────
+
+type FlatEntityRow = {
+  id: string;
+  displayId: string | null;
+  type: RentableEntityType;
+  name: string;
+  code: string;
+  areaSqft: number | null;
+  rentAmount: number;
+  status: SubPropertyStatus;
+  notes: string | null;
+  sortOrder: number | null;
+  parentId: string | null;
+  tenancies: {
+    id: string;
+    monthlyRent: number;
+    endDate: Date;
+    tenant: { name: string };
+  }[];
+};
+
+/**
+ * Build a tree from flat rows, then compute bottom-up effectiveRent:
+ *   - Leaf node: effectiveRent = activeLease.monthlyRent ?? listedRent
+ *   - Parent node: effectiveRent = sum of children effectiveRent
+ *     (we IGNORE the parent's own listedRent when it has children — per user requirement)
+ */
+function buildEntityTree(rows: FlatEntityRow[]): OverviewEntityNode[] {
+  // First pass: create all nodes
+  const nodeMap = new Map<string, OverviewEntityNode>();
+  for (const row of rows) {
+    const lease = row.tenancies[0] ?? null;
+    nodeMap.set(row.id, {
+      id: row.id,
+      displayId: row.displayId,
+      type: row.type,
+      name: row.name,
+      code: row.code,
+      areaSqft: row.areaSqft,
+      listedRent: row.rentAmount,
+      status: row.status,
+      notes: row.notes,
+      sortOrder: row.sortOrder,
+      parentId: row.parentId,
+      activeLease: lease
+        ? {
+            tenancyId: lease.id,
+            tenantName: lease.tenant.name,
+            monthlyRent: lease.monthlyRent,
+            endDate: lease.endDate,
+          }
+        : null,
+      effectiveRent: 0, // computed in third pass
+      children: [],
+    });
+  }
+
+  // Second pass: wire parent–child relationships
+  const roots: OverviewEntityNode[] = [];
+  for (const node of nodeMap.values()) {
+    if (node.parentId && nodeMap.has(node.parentId)) {
+      nodeMap.get(node.parentId)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  // Sort children by sortOrder then name
+  function sortChildren(node: OverviewEntityNode) {
+    node.children.sort((a, b) => {
+      if (a.sortOrder != null && b.sortOrder != null) return a.sortOrder - b.sortOrder;
+      if (a.sortOrder != null) return -1;
+      if (b.sortOrder != null) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    for (const child of node.children) sortChildren(child);
+  }
+  roots.sort((a, b) => {
+    if (a.sortOrder != null && b.sortOrder != null) return a.sortOrder - b.sortOrder;
+    if (a.sortOrder != null) return -1;
+    if (b.sortOrder != null) return 1;
+    return a.name.localeCompare(b.name);
+  });
+  for (const root of roots) sortChildren(root);
+
+  // Third pass: bottom-up effectiveRent
+  function computeEffectiveRent(node: OverviewEntityNode): number {
+    if (node.children.length === 0) {
+      // Leaf: use active lease rent, or the listed price
+      node.effectiveRent = node.activeLease?.monthlyRent ?? node.listedRent;
+    } else {
+      // Parent: sum children only (ignore own listed rent when children exist)
+      let childSum = 0;
+      for (const child of node.children) {
+        childSum += computeEffectiveRent(child);
+      }
+      node.effectiveRent = childSum;
+    }
+    return node.effectiveRent;
+  }
+  for (const root of roots) computeEffectiveRent(root);
+
+  return roots;
+}
+
+/**
+ * Recursively sum the effectiveRent of all root-level entities.
+ * This gives the total monthly expected rent for a property's RentableEntity hierarchy.
+ */
+function sumEntityRoots(roots: OverviewEntityNode[]): number {
+  return roots.reduce((sum, n) => sum + n.effectiveRent, 0);
+}
+
+/**
+ * Count occupied entity nodes (nodes with an active lease, at any level).
+ */
+function countOccupiedEntities(nodes: OverviewEntityNode[]): number {
+  let count = 0;
+  for (const node of nodes) {
+    if (node.status === 'OCCUPIED') count++;
+    count += countOccupiedEntities(node.children);
+  }
+  return count;
+}
+
+/**
+ * Count total entity nodes at all levels.
+ */
+function countAllEntities(nodes: OverviewEntityNode[]): number {
+  let count = 0;
+  for (const node of nodes) {
+    count++;
+    count += countAllEntities(node.children);
+  }
+  return count;
+}
+
 export async function getPortfolioOverview(
   ownerId: string,
   // Manager scope: restrict to accessible property/unit ids.
@@ -109,7 +279,7 @@ export async function getPortfolioOverview(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
   );
 
-  const [portfolios, docCountRows, managerRows, paymentRows, balanceRows] =
+  const [portfolios, docCountRows, managerRows, paymentRows, balanceRows, entityRows] =
     await Promise.all([
     prisma.portfolio.findMany({
     where: { ownerId },
@@ -206,6 +376,41 @@ export async function getPortfolioOverview(
       },
       _sum: { amount: true },
     }),
+    // RentableEntity hierarchy for all properties owned by this user.
+    prisma.rentableEntity.findMany({
+      where: scope
+        ? { ownerId, propertyId: { in: scope.propertyIds } }
+        : { ownerId },
+      orderBy: [
+        { sortOrder: { sort: 'asc', nulls: 'last' } },
+        { createdAt: 'asc' },
+      ],
+      select: {
+        id: true,
+        displayId: true,
+        type: true,
+        name: true,
+        code: true,
+        areaSqft: true,
+        rentAmount: true,
+        status: true,
+        notes: true,
+        sortOrder: true,
+        parentId: true,
+        propertyId: true,
+        tenancies: {
+          where: { status: 'ACTIVE' },
+          orderBy: { startDate: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            monthlyRent: true,
+            endDate: true,
+            tenant: { select: { name: true } },
+          },
+        },
+      },
+    }),
   ]);
 
   // Rent collected this month, keyed by tenancy id (LedgerEntry PAYMENTs).
@@ -229,8 +434,18 @@ export async function getPortfolioOverview(
     }
   }
 
+  // Group RentableEntity rows by propertyId, then build trees.
+  const entityRowsByProperty = new Map<string, typeof entityRows>();
+  for (const row of entityRows) {
+    if (!entityRowsByProperty.has(row.propertyId)) {
+      entityRowsByProperty.set(row.propertyId, []);
+    }
+    entityRowsByProperty.get(row.propertyId)!.push(row);
+  }
+
   const mapped = portfolios.map((p) => {
     const properties: OverviewProperty[] = p.properties.map((pr) => {
+      // ── SubProperty (flat) units ──────────────────────────────────────────
       const units: OverviewUnit[] = pr.subProperties.map((u) => {
         const tenancy = u.tenancies[0] ?? null;
         const ledger = (tenancy?.rentLedger ?? []) as LedgerRow[];
@@ -250,7 +465,6 @@ export async function getPortfolioOverview(
             )
           : null;
 
-        // Collected this month from LedgerEntry PAYMENT entries (not RentLedger).
         const monthlyCollected = tenancy
           ? paidByTenancy.get(tenancy.id) ?? 0
           : 0;
@@ -291,6 +505,23 @@ export async function getPortfolioOverview(
         };
       });
 
+      // ── RentableEntity hierarchy tree ──────────────────────────────────────
+      const rawEntityRows = entityRowsByProperty.get(pr.id) ?? [];
+      const rentableEntities = buildEntityTree(rawEntityRows);
+
+      // ── Monthly expected rent calculation ─────────────────────────────────
+      // Priority: if RentableEntity hierarchy exists → use its leaf-sum rollup.
+      // Otherwise fall back to SubProperty unit sum.
+      const entityExpected = rentableEntities.length > 0
+        ? sumEntityRoots(rentableEntities)
+        : 0;
+      const subPropExpected = units.reduce((s, u) => s + u.monthlyExpected, 0);
+      const monthlyExpected = entityExpected + subPropExpected;
+
+      // ── Occupancy counts ──────────────────────────────────────────────────
+      const entityOccupied = countOccupiedEntities(rentableEntities);
+      const entityCount = countAllEntities(rentableEntities);
+
       return {
         id: pr.id,
         displayId: pr.displayId,
@@ -300,9 +531,9 @@ export async function getPortfolioOverview(
         country: pr.country,
         status: pr.status,
         type: pr.type,
-        unitCount: units.length,
-        occupiedCount: units.filter((u) => u.status === 'OCCUPIED').length,
-        monthlyExpected: units.reduce((s, u) => s + u.monthlyExpected, 0),
+        unitCount: units.length + entityCount,
+        occupiedCount: units.filter((u) => u.status === 'OCCUPIED').length + entityOccupied,
+        monthlyExpected,
         monthlyCollected: units.reduce((s, u) => s + u.monthlyCollected, 0),
         overdueCount: units.filter((u) => u.overdueAmount > 0).length,
         expiringCount: units.filter((u) => u.expiringSoon).length,
@@ -312,6 +543,7 @@ export async function getPortfolioOverview(
         unitsGroupBy: pr.unitsGroupBy,
         unitSections: (pr.unitSections as UnitSection[] | null) ?? null,
         units,
+        rentableEntities,
       };
     });
 

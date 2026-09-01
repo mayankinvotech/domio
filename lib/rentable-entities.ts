@@ -317,7 +317,14 @@ function buildTree(rows: FlatRow[]): RentableEntityNode[] {
       childCollSum += res.collection;
     }
 
-    node.aggregatedRent = (node.activeLease?.monthlyRent ?? 0) + childRentSum;
+    if (node.children.length === 0) {
+      // Leaf node: use active lease rent if active, otherwise listed asking rent
+      node.aggregatedRent = node.activeLease?.monthlyRent ?? node.rentAmount;
+    } else {
+      // Parent node: if parent has an active lease over the whole unit, use that;
+      // otherwise, sum of children's rents (ignore parent's own listed rent when children exist)
+      node.aggregatedRent = node.activeLease?.monthlyRent ?? childRentSum;
+    }
     node.aggregatedCollection = node.directCollection + childCollSum;
     return { rent: node.aggregatedRent, collection: node.aggregatedCollection };
   }

@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { getOwnedTenant } from '@/lib/tenants';
 import { listVacantUnitsByProperty } from '@/lib/tenancies';
+import { resolveDataScope } from '@/lib/manager-access';
 import AssignForm from './assign-form';
 
 export default async function AssignTenantPage({
@@ -14,11 +15,13 @@ export default async function AssignTenantPage({
   if (!session?.user) redirect('/login');
 
   const { tenantId } = await params;
-  const tenant = await getOwnedTenant(tenantId, session.user.id, session.user.role);
+  // Resolve the effective owner ID (for managers, this is their owner's ID)
+  const ds = await resolveDataScope(session.user);
+  const tenant = await getOwnedTenant(tenantId, ds.ownerId, session.user.role);
   if (!tenant) notFound();
 
-  // Always query vacant units for the logged-in owner/manager so they assign their own properties
-  const properties = await listVacantUnitsByProperty(session.user.id, session.user.role);
+  // Query vacant units scoped to the effective owner so managers see the right properties
+  const properties = await listVacantUnitsByProperty(ds.ownerId, session.user.role);
 
   return (
     <div className="mx-auto max-w-xl">

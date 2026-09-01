@@ -324,9 +324,9 @@ export function parseTenantInput(
   if (typeof name !== 'string' || !name.trim()) {
     return { error: 'Name is required.' };
   }
-  // Phone is required (it is the portal login credential)
-  if (typeof phone !== 'string' || !phone.trim()) {
-    return { error: 'Phone number is required.' };
+  // Phone is mandatory (portal login credential and reminder dispatch target)
+  if (typeof phone !== 'string' || !phone.trim() || phone.trim().replace(/\D/g, '').length < 8) {
+    return { error: 'A valid phone number (minimum 8 digits) is mandatory for every tenant.' };
   }
   // Email is optional
   const resolvedEmail =

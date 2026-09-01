@@ -798,6 +798,7 @@ function PropertyRow({
         }))}
         initialExpanded={true}
         initialSections={property.unitSections}
+        rentableEntities={property.rentableEntities}
       />
     </div>
   );
