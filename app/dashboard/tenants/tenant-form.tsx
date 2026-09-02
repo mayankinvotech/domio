@@ -91,6 +91,9 @@ export default function TenantForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // ── Lookup tenant by username ──────────────────────────────────────────────
   async function handleLookupUsername(e?: React.FormEvent) {
@@ -158,10 +161,21 @@ export default function TenantForm({
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    // Validate passwords match when creating
+    if (mode === 'create' && password && password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    if (mode === 'create' && password && password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
     setPending(true);
 
     const d = new FormData(event.currentTarget);
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: d.get('name'),
       email: d.get('email'),
       phone: d.get('phone'),
@@ -172,6 +186,11 @@ export default function TenantForm({
       bankAccountNumber: d.get('bankAccountNumber'),
       bankName: d.get('bankName'),
     };
+
+    // Only send password on create and only if provided
+    if (mode === 'create' && password) {
+      payload.password = password;
+    }
 
     const res = await fetch(
       mode === 'edit' ? `/api/tenants/${tenant!.id}` : '/api/tenants',
@@ -341,6 +360,81 @@ export default function TenantForm({
             <Field id="bankAccountNumber" label="Bank Account Number" opt defaultValue={tenant?.bankAccountNumber ?? ''} />
             <Field id="bankName" label="Bank Name" opt defaultValue={tenant?.bankName ?? ''} />
           </div>
+
+          {/* Portal password — only shown when creating a new tenant */}
+          {mode === 'create' && (
+            <div className="mt-2 border-t border-[#312D58] pt-4">
+              <div className="mb-3 flex items-center gap-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                  Tenant Portal Access
+                </h2>
+                <span className="rounded-full border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-[10px] font-bold text-zinc-400">
+                  Optional
+                </span>
+              </div>
+              <p className="mb-3 text-xs text-[#6A6A8A]">
+                Set a password so this tenant can log in to the Tenant Portal immediately at{' '}
+                <span className="font-mono text-zinc-400">/tenant-portal/login</span>{' '}
+                using their email address. If left blank, they can still log in via Phone OTP.
+              </p>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className={labelClass}>Portal Password</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="text-[10px] text-zinc-500 hover:text-zinc-300 transition"
+                    >
+                      {showPassword ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Minimum 6 characters"
+                    autoComplete="new-password"
+                    className={inputClass}
+                  />
+                </div>
+                {password && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className={labelClass}>Confirm Password</label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter password"
+                      autoComplete="new-password"
+                      className={
+                        inputClass +
+                        (confirmPassword && confirmPassword !== password
+                          ? ' border-red-500/60'
+                          : '')
+                      }
+                    />
+                    {confirmPassword && confirmPassword !== password && (
+                      <p className="text-xs text-red-400">Passwords do not match</p>
+                    )}
+                    {confirmPassword && confirmPassword === password && (
+                      <p className="text-xs text-emerald-400">✓ Passwords match</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              {password && (
+                <div className="mt-3 flex items-start gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2.5">
+                  <span className="text-sm">🔑</span>
+                  <p className="text-xs text-blue-300">
+                    Tenant will be able to log in at{' '}
+                    <span className="font-mono font-bold">/tenant-portal/login</span>{' '}
+                    using their email and this password immediately.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {mode === 'edit' && (
             <div className="mt-2 border-t border-[#312D58] pt-4" data-testid="tenancy-details">

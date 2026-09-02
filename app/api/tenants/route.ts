@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { resolveDataScope } from '@/lib/manager-access';
 import { parseTenantInput } from '@/lib/tenants';
@@ -100,6 +101,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
+  // If owner sets a portal password, validate and hash it
+  let passwordHash: string | undefined;
+  const rawPassword = typeof body.password === 'string' ? body.password.trim() : null;
+  if (rawPassword) {
+    if (rawPassword.length < 6) {
+      return NextResponse.json(
+        { error: 'Password must be at least 6 characters.' },
+        { status: 400 },
+      );
+    }
+    passwordHash = await bcrypt.hash(rawPassword, 10);
+  }
+
   const displayId = await generateTenantId().catch(() => null);
 
   try {
@@ -117,6 +131,7 @@ export async function POST(request: Request) {
         bankName: parsed.data.bankName,
         ownerId: ds.ownerId,
         portalEnabled: true,
+        ...(passwordHash ? { password: passwordHash } : {}),
       },
     });
 

@@ -60,6 +60,14 @@ export default async function TenantsPage() {
 
             <div className="flex flex-wrap items-center gap-3">
               <Link
+                href="/tenant-portal/login"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur-md transition-all hover:bg-white/20 hover:scale-105 active:scale-95"
+              >
+                🔑 Open Tenant Portal
+              </Link>
+              <Link
                 href="/dashboard/tenants/new"
                 className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-black transition-all hover:bg-zinc-100 hover:scale-105 active:scale-95 shadow-lg"
               >
