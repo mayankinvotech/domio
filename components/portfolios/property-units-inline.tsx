@@ -326,8 +326,11 @@ export default function PropertyUnitsInline({
   function openAssignModal(unit: VacantUnit) {
     setAssignModal({ open: true, unit });
   }
-  function openAddUnitModal(parentId?: string, parentName?: string, parentType?: string) {
-    setAddUnitModal({ open: true, parentId, parentName, parentType });
+  function openAddUnitModal(parentId?: string) {
+    const url = parentId
+      ? `/dashboard/portfolios/${portfolioId}/properties/${propertyId}/units/new?parentId=${parentId}`
+      : `/dashboard/portfolios/${portfolioId}/properties/${propertyId}/units/new`;
+    router.push(url);
   }
 
   function toggle() {
@@ -460,7 +463,10 @@ export default function PropertyUnitsInline({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); openAddUnitModal(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/dashboard/portfolios/${portfolioId}/properties/${propertyId}/units/new`);
+            }}
             className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition"
           >
             + Add Unit

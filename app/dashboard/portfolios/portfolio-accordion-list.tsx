@@ -797,14 +797,10 @@ function PropertyRow({
           </Link>
           {canManage && (
             <>
-              {/* Add Unit opens modal instead of navigating */}
-              <button
-                type="button"
-                onClick={() => setAddUnitOpen(true)}
-                className={darkBtn}
-              >
+              {/* Restore original + Add Unit link to the full unit/entity form page */}
+              <Link href={`${base}/units/new`} className={darkBtn}>
                 + Add Unit
-              </button>
+              </Link>
               {/* Assign Tenant quick action (shown when there are vacant units) */}
               {hasVacantUnits && (
                 <button
