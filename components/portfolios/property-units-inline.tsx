@@ -629,6 +629,7 @@ export default function PropertyUnitsInline({
                                     `/dashboard/portfolios/${portfolioId}/properties/${propertyId}/units/${uid}`,
                                   )
                                 }
+                                onAssignTenant={openAssignModal}
                                 onDragStart={() => {
                                   dragRef.current = uid;
                                   setDragUnit(uid);
@@ -697,6 +698,7 @@ export default function PropertyUnitsInline({
 function UnitCard({
   unit,
   onOpen,
+  onAssignTenant,
   dimmed,
   onDragStart,
   onDragEnd,
@@ -704,6 +706,7 @@ function UnitCard({
 }: {
   unit: InlineUnit;
   onOpen: () => void;
+  onAssignTenant?: (unit: VacantUnit) => void;
   dimmed: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
@@ -760,6 +763,25 @@ function UnitCard({
           {formatMoney(unit.rentAmount)}
         </span>
       </div>
+
+      {!occupied && onAssignTenant && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAssignTenant({
+              id: unit.id,
+              name: unit.name,
+              unitNumber: unit.unitNumber,
+              rentAmount: unit.rentAmount,
+              isRentableEntity: false,
+            });
+          }}
+          className="mt-1 w-full rounded-lg border border-emerald-300 bg-emerald-600 py-1 text-center text-[11px] font-bold text-white transition hover:bg-emerald-700"
+        >
+          🔑 Assign Tenant
+        </button>
+      )}
 
       {(() => {
         const bi = balanceInfo(unit);
