@@ -26,8 +26,6 @@ import PortfolioReportButton from '@/components/reports/portfolio-report-button'
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { Button, ButtonLink } from '@/components/ui/button';
-import AssignTenantModal, { type VacantUnit } from '@/components/portfolios/assign-tenant-modal';
-import AddUnitModal from '@/components/portfolios/add-unit-modal';
 
 type Filter = 'ALL' | PortfolioType;
 
@@ -728,43 +726,8 @@ function PropertyRow({
 }) {
   const base = `/dashboard/portfolios/${portfolioId}/properties/${property.id}`;
 
-  // Inline modal state for this property row
-  const [addUnitOpen, setAddUnitOpen] = useState(false);
-  const [assignModalState, setAssignModalState] = useState<{
-    open: boolean;
-    unit: VacantUnit | null;
-  }>({ open: false, unit: null });
-
-  // Collect vacant flat units for quick assignment
-  const vacantFlatUnits: VacantUnit[] = property.units
-    .filter((u) => u.status === 'VACANT')
-    .map((u) => ({
-      id: u.id,
-      name: u.name,
-      unitNumber: u.unitNumber,
-      rentAmount: u.rentAmount,
-      isRentableEntity: false,
-    }));
-
-  const hasVacantUnits = vacantFlatUnits.length > 0 ||
-    property.rentableEntities.some((e) => e.isLeaf && e.status === 'VACANT');
-
   return (
     <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-zinc-300">
-      {/* Modals */}
-      <AddUnitModal
-        isOpen={addUnitOpen}
-        onClose={() => setAddUnitOpen(false)}
-        propertyId={property.id}
-      />
-      <AssignTenantModal
-        isOpen={assignModalState.open}
-        onClose={() => setAssignModalState({ open: false, unit: null })}
-        preselectedUnit={assignModalState.unit ?? undefined}
-        vacantUnits={vacantFlatUnits}
-        propertyId={property.id}
-      />
-
       {/* Property Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -829,20 +792,9 @@ function PropertyRow({
         <div className="flex flex-wrap items-center gap-2">
           {canManage && (
             <>
-              {/* Restore original + Add Unit link to the full unit/entity form page */}
               <Link href={`${base}/units/new`} className={darkBtn}>
                 + Add Unit
               </Link>
-              {/* Assign Tenant quick action (shown when there are vacant units) */}
-              {hasVacantUnits && (
-                <button
-                  type="button"
-                  onClick={() => setAssignModalState({ open: true, unit: vacantFlatUnits[0] ?? null })}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition-all hover:bg-emerald-700"
-                >
-                  🔑 Assign Tenant
-                </button>
-              )}
               <Link href={`${base}/edit`} className={ghostBtn}>
                 Edit
               </Link>

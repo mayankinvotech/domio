@@ -213,13 +213,6 @@ export default function UnitsGrid({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => setAssignModal({ open: true, unit: vacantFlatUnits[0] ?? null })}
-            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-emerald-700"
-          >
-            🔑 Assign Tenant
-          </button>
           <ButtonLink
             href={`${base}/new`}
             variant="primary"
