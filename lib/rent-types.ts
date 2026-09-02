@@ -17,10 +17,10 @@ const STATUS_LABELS: Record<RentStatus, string> = {
 
 // AverIQ-aligned badges — PAID green, DUE gold, OVERDUE red, PARTIAL violet.
 const STATUS_BADGE: Record<RentStatus, string> = {
-  PAID: 'border border-green-500/30 bg-green-500/10 text-green-400',
-  DUE: 'border border-[rgba(232,160,32,0.3)] bg-[rgba(232,160,32,0.12)] text-[#E8A020]',
-  OVERDUE: 'border border-red-500/30 bg-red-500/10 text-red-400',
-  PARTIAL: 'border border-[#5B4FE8]/30 bg-[#5B4FE8]/15 text-[#8B6FE8]',
+  PAID: 'border border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold',
+  DUE: 'border border-amber-200 bg-amber-50 text-amber-800 font-semibold',
+  OVERDUE: 'border border-red-200 bg-red-50 text-red-700 font-semibold',
+  PARTIAL: 'border border-purple-200 bg-purple-50 text-purple-700 font-semibold',
 };
 
 export function rentStatusLabel(status: RentStatus): string {

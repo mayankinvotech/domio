@@ -34,9 +34,9 @@ const FIELD_LABEL: Record<string, string> = {
 };
 
 const ACTION_STYLE: Record<AuditAction, { label: string; cls: string }> = {
-  CREATE: { label: 'Created', cls: 'text-green-400' },
-  UPDATE: { label: 'Edited', cls: 'text-zinc-500' },
-  DELETE: { label: 'Deleted', cls: 'text-red-400' },
+  CREATE: { label: 'Created', cls: 'text-emerald-700 font-semibold' },
+  UPDATE: { label: 'Edited', cls: 'text-blue-700 font-semibold' },
+  DELETE: { label: 'Deleted', cls: 'text-red-700 font-semibold' },
 };
 
 const dtFmt = new Intl.DateTimeFormat('en-GB', {
@@ -102,7 +102,7 @@ export default function AuditHistoryPopover({
         onClick={() => setOpen((o) => !o)}
         title="View change history"
         aria-label="View change history"
-        className="rounded-full border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-2 py-1 text-xs text-[#B0B0C8] transition-colors hover:text-white"
+        className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 shadow-xs transition hover:bg-zinc-100 hover:border-zinc-300 hover:text-zinc-900"
       >
         History
       </button>
@@ -113,16 +113,16 @@ export default function AuditHistoryPopover({
             onClick={() => setOpen(false)}
             aria-hidden
           />
-          <div className="absolute right-0 z-50 mt-1 max-h-80 w-80 overflow-y-auto rounded-xl border border-zinc-200 bg-[rgba(14,12,34,0.98)] p-3 text-left shadow-2xl backdrop-blur-xl">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <div className="absolute right-0 z-50 mt-1 max-h-80 w-80 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-3.5 text-left shadow-xl">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-700">
               Change history
             </p>
             {items === null && (
-              <p className="py-2 text-sm text-[#B0B0C8]">Loading…</p>
+              <p className="py-2 text-sm text-zinc-500">Loading…</p>
             )}
-            {error && <p className="py-2 text-sm text-red-400">{error}</p>}
+            {error && <p className="py-2 text-sm text-red-600">{error}</p>}
             {items !== null && items.length === 0 && !error && (
-              <p className="py-2 text-sm text-[#6A6A8A]">
+              <p className="py-2 text-sm text-zinc-500">
                 No history recorded for this record.
               </p>
             )}
@@ -132,31 +132,31 @@ export default function AuditHistoryPopover({
                 return (
                   <li
                     key={it.id}
-                    className="border-b border-zinc-200 pb-2 last:border-0 last:pb-0"
+                    className="border-b border-zinc-100 pb-2.5 last:border-0 last:pb-0"
                   >
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className={'text-sm font-medium ' + style.cls}>
+                      <span className={'text-xs font-bold ' + style.cls}>
                         {style.label}
                       </span>
-                      <span className="text-[11px] text-[#6A6A8A]">
+                      <span className="text-[11px] text-zinc-400">
                         {dtFmt.format(new Date(it.createdAt))}
                       </span>
                     </div>
-                    <p className="text-xs text-[#B0B0C8]">
+                    <p className="text-xs font-medium text-zinc-700">
                       {it.actorName}{' '}
-                      <span className="text-[#6A6A8A]">
+                      <span className="text-zinc-400 font-normal">
                         ({it.actorRole.toLowerCase()})
                       </span>
                     </p>
                     {it.action === 'UPDATE' && it.before && it.after && (
-                      <ul className="mt-1 flex flex-col gap-0.5">
+                      <ul className="mt-1 flex flex-col gap-0.5 rounded-lg bg-zinc-50 p-2 text-xs">
                         {it.changedFields.map((f) => (
-                          <li key={f} className="text-xs text-zinc-500">
-                            <span className="text-zinc-500">
+                          <li key={f} className="text-zinc-600">
+                            <span className="font-semibold text-zinc-700">
                               {FIELD_LABEL[f] ?? f}:
                             </span>{' '}
-                            {fmtValue(it.before![f])} →{' '}
-                            <span className="text-white">
+                            <span className="line-through text-zinc-400">{fmtValue(it.before![f])}</span> →{' '}
+                            <span className="font-semibold text-zinc-900">
                               {fmtValue(it.after![f])}
                             </span>
                           </li>
@@ -164,7 +164,7 @@ export default function AuditHistoryPopover({
                       </ul>
                     )}
                     {it.reason && (
-                      <p className="mt-1 text-xs italic text-[#6A6A8A]">
+                      <p className="mt-1 text-xs italic text-zinc-500">
                         “{it.reason}”
                       </p>
                     )}

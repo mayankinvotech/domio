@@ -16,8 +16,8 @@ import { RENT_STATUSES } from '@/lib/rent-types';
 import AuditHistoryPopover from '@/components/rent/audit-history-popover';
 
 const inputClass =
-  'rounded-lg border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-3 py-2 text-sm text-white outline-none transition placeholder:text-[#B0B0C8] focus:border-zinc-700 focus:ring-2 focus:ring-zinc-500/20';
-const labelClass = 'text-sm font-medium text-[#E8E8F2]';
+  'w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 shadow-xs outline-none transition placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10';
+const labelClass = 'text-xs font-bold uppercase tracking-wider text-zinc-700';
 
 // "01 Jun 2026" — payment/rent-for dates are stored at UTC midnight, so format
 // in UTC to keep the calendar day stable across timezones.
@@ -145,44 +145,44 @@ export default function RentTable({
     }
     setPending(false);
   }
-
   if (entries.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-[#312D58] bg-[#17152F] p-12 text-center">
-        <p className="text-sm text-[#E8E8F2]">No rent entries found</p>
+      <div className="rounded-2xl border border-dashed border-zinc-200 bg-white p-12 text-center shadow-xs">
+        <p className="text-sm font-semibold text-zinc-700">No rent entries found</p>
+        <p className="mt-1 text-xs text-zinc-500">There are no rent ledger records matching your current filter.</p>
       </div>
     );
   }
 
   return (
     <>
-      <div className="overflow-x-auto rounded-2xl border border-[#1A1A2A]">
-        <table className="w-full min-w-[680px] text-left text-sm">
-          <thead className="bg-[#1A1A2A] text-xs uppercase tracking-wide text-zinc-500">
+      <div className="overflow-x-auto rounded-2xl border border-zinc-200/90 bg-white shadow-xs">
+        <table className="w-full min-w-[760px] text-left text-sm">
+          <thead className="border-b border-zinc-200 bg-zinc-50/90 text-[11px] font-bold uppercase tracking-wider text-zinc-600">
             <tr>
-              <th className="px-4 py-3 font-medium">Tenant</th>
-              <th className="px-4 py-3 font-medium">Unit</th>
-              <th className="px-4 py-3 font-medium">Property</th>
-              <th className="px-4 py-3 font-medium">Due Date</th>
-              <th className="px-4 py-3 font-medium">Rent Projected</th>
-              <th className="px-4 py-3 font-medium">Amount Due</th>
-              <th className="px-4 py-3 font-medium">Amount Paid</th>
-              <th className="px-4 py-3 font-medium">Payment Date</th>
-              <th className="px-4 py-3 font-medium">Rent For</th>
-              <th className="px-4 py-3 font-medium">Method</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Notes</th>
-              <th className="px-4 py-3 text-right font-medium">Actions</th>
+              <th className="px-4 py-3.5">Tenant</th>
+              <th className="px-4 py-3.5">Unit</th>
+              <th className="px-4 py-3.5">Property</th>
+              <th className="px-4 py-3.5">Due Date</th>
+              <th className="px-4 py-3.5">Rent Projected</th>
+              <th className="px-4 py-3.5">Amount Due</th>
+              <th className="px-4 py-3.5">Amount Paid</th>
+              <th className="px-4 py-3.5">Payment Date</th>
+              <th className="px-4 py-3.5">Rent For</th>
+              <th className="px-4 py-3.5">Method</th>
+              <th className="px-4 py-3.5">Status</th>
+              <th className="px-4 py-3.5">Notes</th>
+              <th className="px-4 py-3.5 text-right">Actions</th>
             </tr>
           </thead>
           {groups.map((group) => (
-            <tbody key={group.name} className="divide-y divide-[#1A1A2A]">
-              <tr className="bg-[#0E0C22]">
+            <tbody key={group.name} className="divide-y divide-zinc-100">
+              <tr className="border-y border-zinc-200 bg-zinc-100/80">
                 <td
                   colSpan={13}
-                  className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[#B0B0C8]"
+                  className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-800"
                 >
-                  {group.name}
+                  🏢 {group.name}
                 </td>
               </tr>
               {group.items.map((e) => {
@@ -198,75 +198,73 @@ export default function RentTable({
                 return (
                   <tr
                     key={e.id}
-                    style={
-                      overdue
-                        ? { backgroundColor: 'rgba(239,68,68,0.05)' }
-                        : undefined
-                    }
+                    className={`transition-colors hover:bg-zinc-50/80 ${
+                      overdue ? 'bg-red-50/35 hover:bg-red-50/60' : 'bg-white'
+                    }`}
                   >
-                    <td className="px-4 py-3 font-medium text-white">
+                    <td className="px-4 py-3.5 font-bold text-zinc-900">
                       {e.tenantName}
                     </td>
-                    <td className="px-4 py-3 text-[#6A6A8A]">
+                    <td className="px-4 py-3.5 font-medium text-zinc-600">
                       Unit {e.unitNumber}
                     </td>
-                    <td className="px-4 py-3 text-[#6A6A8A]">{e.propertyName}</td>
-                    <td className="px-4 py-3 text-[#6A6A8A]">
+                    <td className="px-4 py-3.5 font-medium text-zinc-600">{e.propertyName}</td>
+                    <td className="px-4 py-3.5 font-medium text-zinc-600">
                       {formatDate(e.dueDate)}
                     </td>
                     {/* Rent Projected — always shown */}
-                    <td className="px-4 py-3 text-white">
+                    <td className="px-4 py-3.5 font-bold font-mono text-zinc-900">
                       {formatMoney(e.monthlyRent)}
                     </td>
                     {/* Amount Due — only past/current */}
-                    <td className="px-4 py-3 text-[#E8A020]">
+                    <td className="px-4 py-3.5 font-bold font-mono text-amber-700">
                       {future ? (
-                        <span className="text-[#4A4A6A]">—</span>
+                        <span className="text-zinc-400 font-normal font-sans">—</span>
                       ) : (
                         formatMoney(e.amountDue)
                       )}
                     </td>
                     {/* Amount Paid */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3.5 font-bold font-mono">
                       {future ? (
-                        <span className="text-[#4A4A6A]">—</span>
+                        <span className="text-zinc-400 font-normal font-sans">—</span>
                       ) : e.amountPaid > 0 ? (
-                        <span className="text-zinc-500">
+                        <span className="text-emerald-700">
                           {formatMoney(e.amountPaid)}
                         </span>
                       ) : (
-                        <span className="text-[#4A4A6A]">—</span>
+                        <span className="text-zinc-400 font-normal font-sans">—</span>
                       )}
                     </td>
                     {/* Payment Date */}
-                    <td className="px-4 py-3 text-[#6A6A8A]">
-                      {e.paidDate ? dmyFmt.format(new Date(e.paidDate)) : '—'}
+                    <td className="px-4 py-3.5 font-medium text-zinc-600">
+                      {e.paidDate ? dmyFmt.format(new Date(e.paidDate)) : <span className="text-zinc-400">—</span>}
                     </td>
                     {/* Rent For */}
-                    <td className="px-4 py-3 text-[#6A6A8A]">
-                      {e.rentFor ? dmyFmt.format(new Date(e.rentFor)) : '—'}
+                    <td className="px-4 py-3.5 font-medium text-zinc-600">
+                      {e.rentFor ? dmyFmt.format(new Date(e.rentFor)) : <span className="text-zinc-400">—</span>}
                     </td>
                     {/* Method */}
-                    <td className="px-4 py-3 text-[#6A6A8A]">
+                    <td className="px-4 py-3.5 font-medium text-zinc-600">
                       {e.paymentMethod ? (
-                        <span title={paymentMethodLabel(e.paymentMethod)}>
+                        <span title={paymentMethodLabel(e.paymentMethod)} className="inline-flex items-center gap-1">
                           {paymentMethodIcon(e.paymentMethod)}{' '}
                           {paymentMethodLabel(e.paymentMethod)}
                         </span>
                       ) : (
-                        '—'
+                        <span className="text-zinc-400">—</span>
                       )}
                     </td>
                     {/* Status */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3.5">
                       {future ? (
-                        <span className="inline-flex rounded-full bg-[rgba(255,255,255,0.06)] px-2.5 py-0.5 text-xs font-medium text-[#4A4A6A]">
+                        <span className="inline-flex rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-600">
                           Future
                         </span>
                       ) : (
                         <span
                           className={
-                            'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ' +
+                            'inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ' +
                             rentStatusBadgeClass(e.status)
                           }
                         >
@@ -275,15 +273,15 @@ export default function RentTable({
                       )}
                     </td>
                     {/* Notes */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3.5">
                       {e.notes ? (
                         <NotesIcon notes={e.notes} />
                       ) : (
-                        <span className="text-xs text-[#4A4A6A]">—</span>
+                        <span className="text-xs text-zinc-400">—</span>
                       )}
                     </td>
                     {/* Actions */}
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <AuditHistoryPopover
                           entity="RENT_LEDGER"
@@ -296,7 +294,7 @@ export default function RentTable({
                               setError(null);
                               setTarget(e);
                             }}
-                            className="rounded-full border border-zinc-300 bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-zinc-800"
+                            className="rounded-full bg-zinc-900 px-3.5 py-1 text-xs font-semibold text-white shadow-xs transition hover:bg-zinc-800"
                           >
                             Record Payment
                           </button>
@@ -310,7 +308,7 @@ export default function RentTable({
                                 setEditTarget(e);
                               }}
                               disabled={pending}
-                              className="rounded-full border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-2.5 py-1 text-xs text-[#B0B0C8] transition-colors hover:text-white disabled:opacity-50"
+                              className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 shadow-xs transition hover:bg-zinc-100 hover:border-zinc-300 hover:text-zinc-900 disabled:opacity-50"
                             >
                               Edit
                             </button>
@@ -318,14 +316,14 @@ export default function RentTable({
                               type="button"
                               onClick={() => deleteRow(e)}
                               disabled={pending}
-                              className="rounded-full border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.1)] px-2.5 py-1 text-xs text-red-400 transition-colors hover:bg-[rgba(239,68,68,0.2)] disabled:opacity-50"
+                              className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 shadow-xs transition hover:bg-red-100 disabled:opacity-50"
                             >
                               Delete
                             </button>
                           </>
                         )}
                         {!canPay && !rowEditable && (
-                          <span className="text-xs text-[#4A4A6A]">—</span>
+                          <span className="text-xs text-zinc-400">—</span>
                         )}
                       </div>
                     </td>
@@ -342,19 +340,19 @@ export default function RentTable({
           role="dialog"
           aria-modal="true"
           onClick={closeModal}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
         >
           <form
             onClick={(e) => e.stopPropagation()}
             onSubmit={submitPayment}
-            className="w-full max-w-sm rounded-2xl border border-[#312D58] bg-[#17152F] p-6 shadow-xl"
+            className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl"
           >
-            <h2 className="text-lg font-semibold tracking-tight text-white">
+            <h2 className="text-lg font-bold tracking-tight text-zinc-900">
               Record Payment
             </h2>
-            <p className="mt-1 mb-4 text-sm text-[#B0B0C8]">
+            <p className="mt-1 mb-4 text-xs font-medium text-zinc-500">
               {target.tenantName} · Unit {target.unitNumber} ·{' '}
-              {formatMoney(target.amountDue)} due
+              <strong className="text-zinc-900">{formatMoney(target.amountDue)} due</strong>
             </p>
 
             <div className="flex flex-col gap-4">
@@ -389,7 +387,7 @@ export default function RentTable({
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="rentFor" className={labelClass}>
                   Rent For{' '}
-                  <span className="text-[#B0B0C8]">(which period this covers)</span>
+                  <span className="text-zinc-400 font-normal">(which period this covers)</span>
                 </label>
                 <input
                   id="rentFor"
@@ -418,13 +416,13 @@ export default function RentTable({
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="reference" className={labelClass}>
-                  Reference Number <span className="text-[#B0B0C8]">(optional)</span>
+                  Reference Number <span className="text-zinc-400 font-normal">(optional)</span>
                 </label>
                 <input id="reference" name="reference" type="text" className={inputClass} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="notes" className={labelClass}>
-                  Notes <span className="text-[#B0B0C8]">(optional)</span>
+                  Notes <span className="text-zinc-400 font-normal">(optional)</span>
                 </label>
                 <textarea
                   id="notes"
@@ -439,25 +437,25 @@ export default function RentTable({
             {error && (
               <p
                 role="alert"
-                className="mt-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400"
+                className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600"
               >
                 {error}
               </p>
             )}
 
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2.5">
               <button
                 type="button"
                 onClick={closeModal}
                 disabled={pending}
-                className="rounded-full border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-4 py-2 text-sm font-medium text-[#E8E8F2] transition-colors hover:text-white disabled:opacity-60"
+                className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={pending}
-                className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+                className="rounded-full bg-zinc-900 px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-zinc-800 disabled:opacity-60"
               >
                 {pending ? 'Saving…' : 'Save Payment'}
               </button>
@@ -471,17 +469,17 @@ export default function RentTable({
           role="dialog"
           aria-modal="true"
           onClick={closeModal}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
         >
           <form
             onClick={(e) => e.stopPropagation()}
             onSubmit={submitEdit}
-            className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-[#312D58] bg-[#17152F] p-6 shadow-xl"
+            className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl"
           >
-            <h2 className="text-lg font-semibold tracking-tight text-white">
+            <h2 className="text-lg font-bold tracking-tight text-zinc-900">
               Edit Rent Record
             </h2>
-            <p className="mt-1 mb-4 text-sm text-[#B0B0C8]">
+            <p className="mt-1 mb-4 text-xs font-medium text-zinc-500">
               {editTarget.tenantName} · Unit {editTarget.unitNumber}
             </p>
 
@@ -534,7 +532,7 @@ export default function RentTable({
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="e-paidDate" className={labelClass}>
                   Payment Date{' '}
-                  <span className="text-[#B0B0C8]">(optional)</span>
+                  <span className="text-zinc-400 font-normal">(optional)</span>
                 </label>
                 <input
                   id="e-paidDate"
@@ -551,7 +549,7 @@ export default function RentTable({
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="e-rentFor" className={labelClass}>
                   Rent For{' '}
-                  <span className="text-[#B0B0C8]">(which period this covers)</span>
+                  <span className="text-zinc-400 font-normal">(which period this covers)</span>
                 </label>
                 <input
                   id="e-rentFor"
@@ -586,7 +584,7 @@ export default function RentTable({
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="e-status" className={labelClass}>
                   Status{' '}
-                  <span className="text-[#B0B0C8]">
+                  <span className="text-zinc-400 font-normal">
                     (leave to auto-compute)
                   </span>
                 </label>
@@ -607,7 +605,7 @@ export default function RentTable({
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="e-reference" className={labelClass}>
                   Reference Number{' '}
-                  <span className="text-[#B0B0C8]">(optional)</span>
+                  <span className="text-zinc-400 font-normal">(optional)</span>
                 </label>
                 <input
                   id="e-reference"
@@ -619,7 +617,7 @@ export default function RentTable({
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="e-notes" className={labelClass}>
-                  Notes <span className="text-[#B0B0C8]">(optional)</span>
+                  Notes <span className="text-zinc-400 font-normal">(optional)</span>
                 </label>
                 <textarea
                   id="e-notes"
@@ -632,7 +630,7 @@ export default function RentTable({
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="e-reason" className={labelClass}>
                   Reason for change{' '}
-                  <span className="text-[#B0B0C8]">(optional)</span>
+                  <span className="text-zinc-400 font-normal">(optional)</span>
                 </label>
                 <input
                   id="e-reason"
@@ -647,25 +645,25 @@ export default function RentTable({
             {error && (
               <p
                 role="alert"
-                className="mt-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400"
+                className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600"
               >
                 {error}
               </p>
             )}
 
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2.5">
               <button
                 type="button"
                 onClick={closeModal}
                 disabled={pending}
-                className="rounded-full border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-4 py-2 text-sm font-medium text-[#E8E8F2] transition-colors hover:text-white disabled:opacity-60"
+                className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:opacity-60"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={pending}
-                className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+                className="rounded-full bg-zinc-900 px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-zinc-800 disabled:opacity-60"
               >
                 {pending ? 'Saving…' : 'Save changes'}
               </button>

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { RENT_STATUSES } from '@/lib/rent-types';
 
 const controlClass =
-  'rounded-lg border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-3 py-2 text-sm text-white outline-none transition focus:border-zinc-700 focus:ring-2 focus:ring-zinc-500/20';
+  'rounded-xl border border-zinc-300 bg-white px-3.5 py-2 text-sm font-medium text-zinc-900 shadow-xs outline-none transition placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 hover:border-zinc-400';
 
 type Current = { status: string; propertyId: string; month: string };
 
@@ -70,7 +70,7 @@ export default function RentFilters({
         <button
           type="button"
           onClick={() => router.push('/dashboard/rent')}
-          className="rounded-lg border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-3 py-2 text-sm font-medium text-[#B0B0C8] transition-colors hover:text-white"
+          className="rounded-xl border border-zinc-300 bg-white px-3.5 py-2 text-sm font-semibold text-zinc-700 shadow-xs transition hover:bg-zinc-100 hover:text-zinc-900"
         >
           Clear
         </button>

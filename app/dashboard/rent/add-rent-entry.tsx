@@ -6,8 +6,8 @@ import { useScrollLock } from '@/hooks/use-scroll-lock';
 import type { ActiveTenancyOption } from '@/lib/rent-ledger';
 
 const inputClass =
-  'rounded-lg border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-3 py-2 text-sm text-white outline-none transition placeholder:text-[#B0B0C8] focus:border-zinc-700 focus:ring-2 focus:ring-zinc-500/20';
-const labelClass = 'text-sm font-medium text-[#E8E8F2]';
+  'w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 shadow-xs outline-none transition placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10';
+const labelClass = 'text-xs font-bold uppercase tracking-wider text-zinc-700';
 
 function thisMonth() {
   return new Date().toISOString().slice(0, 7); // YYYY-MM
@@ -106,22 +106,22 @@ export default function AddRentEntry({
           role="dialog"
           aria-modal="true"
           onClick={close}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
         >
           <form
             onClick={(e) => e.stopPropagation()}
             onSubmit={onSubmit}
-            className="w-full max-w-sm rounded-2xl border border-[#312D58] bg-[#17152F] p-6 shadow-xl"
+            className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl"
           >
-            <h2 className="text-lg font-semibold tracking-tight text-white">
+            <h2 className="text-lg font-bold tracking-tight text-zinc-900">
               Add Rent Entry
             </h2>
-            <p className="mt-1 mb-4 text-sm text-[#B0B0C8]">
+            <p className="mt-1 mb-4 text-xs font-medium text-zinc-500">
               Manually create a rent entry for an active tenancy.
             </p>
 
             {tenancies.length === 0 ? (
-              <p className="rounded-lg border border-[#312D58] bg-[rgba(255,255,255,0.04)] px-3 py-2 text-sm text-[#B0B0C8]">
+              <p className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs font-medium text-zinc-600">
                 No active tenancies to add an entry for.
               </p>
             ) : (
@@ -194,25 +194,25 @@ export default function AddRentEntry({
             {error && (
               <p
                 role="alert"
-                className="mt-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400"
+                className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600"
               >
                 {error}
               </p>
             )}
 
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2.5">
               <button
                 type="button"
                 onClick={close}
                 disabled={pending}
-                className="rounded-full border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-4 py-2 text-sm font-medium text-[#E8E8F2] transition-colors hover:text-white disabled:opacity-60"
+                className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={pending || tenancies.length === 0}
-                className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+                className="rounded-full bg-zinc-900 px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-zinc-800 disabled:opacity-60"
               >
                 {pending ? 'Saving…' : 'Add Entry'}
               </button>
