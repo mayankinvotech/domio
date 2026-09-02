@@ -6,6 +6,8 @@ import type { PropertyType, SubPropertyStatus } from '@prisma/client';
 import { formatMoney } from '@/lib/tenancy-types';
 import { propertyTypeLabel } from '@/lib/property-types';
 import type { OverviewEntityNode } from '@/lib/portfolio-overview';
+import AssignTenantModal, { type VacantUnit } from '@/components/portfolios/assign-tenant-modal';
+import AddUnitModal from '@/components/portfolios/add-unit-modal';
 
 export type InlineUnit = {
   id: string;
@@ -101,57 +103,73 @@ const ENTITY_ICONS: Record<string, string> = {
 const ENTITY_INDENT_PX = 20; // px per depth level
 
 // Recursive entity tree node renderer
+// Leaf nodes (isLeaf=true): show Vacant/Occupied status + Assign Tenant button
+// Parent nodes (isLeaf=false): show sub-unit counts + Add Sub-unit button
 function EntityTreeNode({
   node,
   depth,
   portfolioId,
   propertyId,
+  onAssignTenant,
+  onAddSubUnit,
 }: {
   node: OverviewEntityNode;
   depth: number;
   portfolioId: string;
   propertyId: string;
+  onAssignTenant: (unit: VacantUnit) => void;
+  onAddSubUnit: (parentId: string, parentName: string, parentType: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   const hasChildren = node.children.length > 0;
+  const isLeaf = !hasChildren; // leaf: can be assigned a tenant / shown as Vacant
   const occupied = node.status === 'OCCUPIED';
+  const isVacant = !occupied && node.status !== 'MAINTENANCE';
 
-  // Status dot colour
+  // Status dot colour — parent containers never show as "vacant" (amber); use neutral zinc
   const dotColor = occupied
     ? 'bg-emerald-500'
     : node.status === 'MAINTENANCE'
     ? 'bg-rose-400'
-    : 'bg-amber-400';
+    : isLeaf
+    ? 'bg-amber-400'  // leaf vacant = amber (assignable)
+    : 'bg-zinc-300';  // parent structural = neutral gray (not assignable)
 
   return (
     <div>
       {/* Row */}
       <div
         className={
-          'flex items-start gap-2 rounded-xl border transition-all cursor-pointer select-none ' +
+          'flex items-start gap-2 rounded-xl border transition-all ' +
           (occupied
-            ? 'border-emerald-200/70 bg-emerald-50/30 hover:bg-emerald-50/60'
-            : 'border-zinc-200/70 bg-white hover:bg-zinc-50/60')
+            ? 'border-emerald-200/70 bg-emerald-50/30'
+            : isLeaf
+            ? 'border-amber-200/60 bg-amber-50/20 hover:bg-amber-50/40'  // leaf vacant: amber
+            : 'border-zinc-200/70 bg-white')  // parent: plain white, no vacant indicator
         }
         style={{ marginLeft: `${depth * ENTITY_INDENT_PX}px` }}
-        onClick={() => hasChildren && setOpen((v) => !v)}
       >
         {/* Left accent bar */}
         <div
           className={
-            'w-1 shrink-0 self-stretch rounded-l-xl ' +
-            (occupied ? 'bg-emerald-500' : 'bg-amber-400')
+            'w-1 shrink-0 self-stretch rounded-l-xl cursor-pointer ' +
+            (occupied ? 'bg-emerald-500' : isLeaf ? 'bg-amber-400' : 'bg-zinc-300')
           }
+          onClick={() => hasChildren && setOpen((v) => !v)}
         />
 
         <div className="flex flex-1 flex-col gap-1 py-2.5 pr-3 min-w-0">
           {/* Top row: expand toggle + icon + name + rent */}
           <div className="flex items-center gap-1.5 min-w-0">
-            {/* Expand / collapse arrow */}
+            {/* Expand / collapse arrow — only for parents */}
             {hasChildren ? (
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] text-zinc-500 hover:bg-zinc-200 transition">
+              <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] text-zinc-500 hover:bg-zinc-200 transition"
+              >
                 {open ? '▼' : '▶'}
-              </span>
+              </button>
             ) : (
               <span className="w-4 shrink-0 text-center text-[10px] text-zinc-300">•</span>
             )}
@@ -162,12 +180,7 @@ function EntityTreeNode({
             </span>
 
             {/* Status dot + name */}
-            <span
-              className={
-                'h-2 w-2 shrink-0 rounded-full ' + dotColor
-              }
-              aria-hidden
-            />
+            <span className={'h-2 w-2 shrink-0 rounded-full ' + dotColor} aria-hidden />
             <span className="truncate text-sm font-bold text-zinc-900">{node.name}</span>
             <span className="font-mono text-[10px] text-zinc-400 shrink-0">({node.code})</span>
 
@@ -177,35 +190,58 @@ function EntityTreeNode({
             </span>
           </div>
 
-          {/* Second row: status / tenant + rent breakdown hint */}
+          {/* Second row: status info + action buttons */}
           <div className="flex flex-wrap items-center gap-1.5 pl-9 text-[11px]">
-            {node.activeLease ? (
+            {/* Occupied: show tenant */}
+            {occupied && node.activeLease && (
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
+                👤 {node.activeLease.tenantName}
+              </span>
+            )}
+
+            {/* Parent structural info (NOT vacant, just shows sub-unit summary) */}
+            {!isLeaf && (
               <>
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
-                  👤 {node.activeLease.tenantName}
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 font-semibold text-zinc-600">
+                  {node.children.length} sub-unit{node.children.length !== 1 ? 's' : ''}
                 </span>
-                <span className="text-zinc-400">
-                  Lease rent: {formatMoney(node.activeLease.monthlyRent)}/mo
-                </span>
+                {/* Add Sub-unit button (parent nodes only) */}
+                <button
+                  type="button"
+                  onClick={() => onAddSubUnit(node.id, node.name, node.type)}
+                  className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 font-semibold text-blue-700 hover:bg-blue-100 transition text-[10px]"
+                >
+                  + Add Sub-unit
+                </button>
               </>
-            ) : (
-              <span className="text-zinc-500 font-medium">
-                {occupied ? 'Occupied' : node.status === 'MAINTENANCE' ? '🔧 Maintenance' : 'Vacant'}
-              </span>
             )}
 
-            {/* For parent nodes show rollup badge */}
-            {hasChildren && (
-              <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 font-semibold text-zinc-600">
-                {node.children.length} {node.children.length === 1 ? 'sub-unit' : 'sub-units'} · rollup: {formatMoney(node.effectiveRent)}
-              </span>
+            {/* Leaf node: show Vacant + Assign Tenant OR maintenance */}
+            {isLeaf && !occupied && node.status !== 'MAINTENANCE' && (
+              <>
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">
+                  Vacant
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onAssignTenant({
+                      id: node.id,
+                      name: node.name,
+                      unitNumber: node.code,
+                      rentAmount: node.listedRent,
+                      isRentableEntity: true,
+                    })
+                  }
+                  className="rounded-full border border-emerald-300 bg-emerald-600 px-2.5 py-0.5 font-semibold text-white hover:bg-emerald-700 transition text-[10px]"
+                >
+                  🔑 Assign Tenant
+                </button>
+              </>
             )}
 
-            {/* If this is a parent node, show listed rent vs rollup hint */}
-            {hasChildren && node.listedRent > 0 && node.listedRent !== node.effectiveRent && (
-              <span className="text-zinc-400 text-[10px]" title="Listed price ignored because sub-units define the rent">
-                (listed {formatMoney(node.listedRent)} overridden by sub-units)
-              </span>
+            {isLeaf && node.status === 'MAINTENANCE' && (
+              <span className="text-zinc-500 font-medium">🔧 Maintenance</span>
             )}
           </div>
         </div>
@@ -221,6 +257,8 @@ function EntityTreeNode({
               depth={depth + 1}
               portfolioId={portfolioId}
               propertyId={propertyId}
+              onAssignTenant={onAssignTenant}
+              onAddSubUnit={onAddSubUnit}
             />
           ))}
         </div>
@@ -268,10 +306,29 @@ export default function PropertyUnitsInline({
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
 
+  // Modal state
+  const [assignModal, setAssignModal] = useState<{
+    open: boolean;
+    unit: VacantUnit | null;
+  }>({ open: false, unit: null });
+  const [addUnitModal, setAddUnitModal] = useState<{
+    open: boolean;
+    parentId?: string;
+    parentName?: string;
+    parentType?: string;
+  }>({ open: false });
+
   const unitById = new Map(units.map((u) => [u.id, u]));
 
   // Whether we have a hierarchy to render
   const hasHierarchy = rentableEntities.length > 0;
+
+  function openAssignModal(unit: VacantUnit) {
+    setAssignModal({ open: true, unit });
+  }
+  function openAddUnitModal(parentId?: string, parentName?: string, parentType?: string) {
+    setAddUnitModal({ open: true, parentId, parentName, parentType });
+  }
 
   function toggle() {
     const next = !expanded;
@@ -346,6 +403,23 @@ export default function PropertyUnitsInline({
       data-testid={`prop-inline-${propertyId}`}
       data-expanded={expanded}
     >
+      {/* Assign Tenant Modal */}
+      <AssignTenantModal
+        isOpen={assignModal.open}
+        onClose={() => setAssignModal({ open: false, unit: null })}
+        preselectedUnit={assignModal.unit ?? undefined}
+        propertyId={propertyId}
+      />
+      {/* Add Unit Modal */}
+      <AddUnitModal
+        isOpen={addUnitModal.open}
+        onClose={() => setAddUnitModal({ open: false })}
+        propertyId={propertyId}
+        parentEntityId={addUnitModal.parentId}
+        parentEntityName={addUnitModal.parentName}
+        parentEntityType={addUnitModal.parentType}
+      />
+
       <button
         type="button"
         onClick={toggle}
@@ -384,6 +458,13 @@ export default function PropertyUnitsInline({
           )}
         </span>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); openAddUnitModal(); }}
+            className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition"
+          >
+            + Add Unit
+          </button>
           <span className="text-xs font-medium text-zinc-500 hidden sm:inline">
             {expanded ? 'Hide Units' : 'Show Units'}
           </span>
@@ -428,6 +509,8 @@ export default function PropertyUnitsInline({
                     depth={0}
                     portfolioId={portfolioId}
                     propertyId={propertyId}
+                    onAssignTenant={openAssignModal}
+                    onAddSubUnit={openAddUnitModal}
                   />
                 ))}
               </div>

@@ -5,6 +5,55 @@ import { resolveDataScope } from '@/lib/manager-access';
 import { parseTenantInput } from '@/lib/tenants';
 import { generateTenantId } from '@/lib/display-ids';
 
+// GET /api/tenants?q=<search> — list owner's tenants for modal selection
+export async function GET(request: Request) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const ds = await resolveDataScope(session.user);
+  const { searchParams } = new URL(request.url);
+  const q = searchParams.get('q')?.trim() ?? '';
+
+  const tenants = await prisma.tenant.findMany({
+    where: {
+      ownerId: ds.ownerId,
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: 'insensitive' } },
+              { phone: { contains: q, mode: 'insensitive' } },
+              { email: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: { name: 'asc' },
+    take: 50,
+    select: {
+      id: true,
+      displayId: true,
+      name: true,
+      phone: true,
+      email: true,
+      // Include current tenancy to show "already assigned" tenants in the UI
+      tenancies: {
+        where: { status: 'ACTIVE' },
+        take: 1,
+        select: {
+          id: true,
+          subProperty: { select: { name: true } },
+          rentableEntity: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  return NextResponse.json({ tenants });
+}
+
+
+
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user) {

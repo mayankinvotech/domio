@@ -6,6 +6,7 @@ export type VacantUnitOption = {
   name: string;
   rentAmount: number;
   isRentableEntity?: boolean;
+  entityType?: string;
 };
 
 export type PropertyWithVacantUnits = {
@@ -15,6 +16,7 @@ export type PropertyWithVacantUnits = {
 };
 
 // Owner's properties each with their currently-VACANT units (for the assign form).
+// IMPORTANT: Only LEAF entities (entities with NO child sub-units) can be assigned a tenant.
 export async function listVacantUnitsByProperty(
   ownerId: string,
   role?: string,
@@ -32,14 +34,39 @@ export async function listVacantUnitsByProperty(
         select: { id: true, unitNumber: true, name: true, rentAmount: true },
       },
       rentableEntities: {
-        where: { status: 'VACANT' },
-        orderBy: { code: 'asc' },
-        select: { id: true, code: true, name: true, rentAmount: true },
+        // STRICT RULE: Only leaf units (nodes with NO children) can be assigned a tenant
+        where: {
+          status: 'VACANT',
+          children: { none: {} },
+        },
+        orderBy: [{ type: 'asc' }, { code: 'asc' }],
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          type: true,
+          rentAmount: true,
+          parent: { select: { name: true, type: true } },
+        },
       },
     },
   });
 
   return rows.map((p) => {
+    // If the property uses RentableEntity hierarchy, use leaf rentable entities.
+    // If no rentable entities exist, fall back to subProperties.
+    const entityUnits: VacantUnitOption[] = p.rentableEntities.map((re) => {
+      const parentLabel = re.parent ? `${re.parent.name} → ` : '';
+      return {
+        id: re.id,
+        unitNumber: re.code,
+        name: `${parentLabel}${re.name} (${re.type})`,
+        rentAmount: re.rentAmount,
+        isRentableEntity: true,
+        entityType: re.type,
+      };
+    });
+
     const subUnits: VacantUnitOption[] = p.subProperties.map((sp) => ({
       id: sp.id,
       unitNumber: sp.unitNumber,
@@ -47,18 +74,11 @@ export async function listVacantUnitsByProperty(
       rentAmount: sp.rentAmount,
       isRentableEntity: false,
     }));
-    const entityUnits: VacantUnitOption[] = p.rentableEntities.map((re) => ({
-      id: re.id,
-      unitNumber: re.code,
-      name: re.name,
-      rentAmount: re.rentAmount,
-      isRentableEntity: true,
-    }));
 
     return {
       id: p.id,
       name: p.name,
-      vacantUnits: [...subUnits, ...entityUnits],
+      vacantUnits: entityUnits.length > 0 ? entityUnits : subUnits,
     };
   });
 }

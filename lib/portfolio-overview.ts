@@ -52,6 +52,9 @@ export type OverviewEntityNode = {
   notes: string | null;
   sortOrder: number | null;
   parentId: string | null;
+  // Whether this is a leaf node (no children). Only leaf nodes can be
+  // assigned tenants or shown as "Vacant". Parent containers are structural.
+  isLeaf: boolean;
   // Active lease on this exact node (if any)
   activeLease: {
     tenancyId: string;
@@ -157,7 +160,7 @@ type FlatEntityRow = {
  *     (we IGNORE the parent's own listedRent when it has children — per user requirement)
  */
 function buildEntityTree(rows: FlatEntityRow[]): OverviewEntityNode[] {
-  // First pass: create all nodes
+  // First pass: create all nodes (isLeaf computed in second pass after wiring children)
   const nodeMap = new Map<string, OverviewEntityNode>();
   for (const row of rows) {
     const lease = row.tenancies[0] ?? null;
@@ -173,6 +176,7 @@ function buildEntityTree(rows: FlatEntityRow[]): OverviewEntityNode[] {
       notes: row.notes,
       sortOrder: row.sortOrder,
       parentId: row.parentId,
+      isLeaf: true, // updated after children are wired
       activeLease: lease
         ? {
             tenancyId: lease.id,
@@ -186,11 +190,14 @@ function buildEntityTree(rows: FlatEntityRow[]): OverviewEntityNode[] {
     });
   }
 
-  // Second pass: wire parent–child relationships
+  // Second pass: wire parent–child relationships, then mark non-leaf parents
   const roots: OverviewEntityNode[] = [];
   for (const node of nodeMap.values()) {
     if (node.parentId && nodeMap.has(node.parentId)) {
-      nodeMap.get(node.parentId)!.children.push(node);
+      const parent = nodeMap.get(node.parentId)!;
+      parent.children.push(node);
+      // Parent nodes are structural containers, not rentable leaf units
+      parent.isLeaf = false;
     } else {
       roots.push(node);
     }
@@ -243,24 +250,29 @@ function sumEntityRoots(roots: OverviewEntityNode[]): number {
 }
 
 /**
- * Count occupied entity nodes (nodes with an active lease, at any level).
+ * Count occupied LEAF entity nodes only.
+ * Parent containers (floors, rooms with sub-units) are NOT counted.
  */
 function countOccupiedEntities(nodes: OverviewEntityNode[]): number {
   let count = 0;
   for (const node of nodes) {
-    if (node.status === 'OCCUPIED') count++;
+    // Only leaf nodes count as occupiable units
+    if (node.isLeaf && node.status === 'OCCUPIED') count++;
     count += countOccupiedEntities(node.children);
   }
   return count;
 }
 
 /**
- * Count total entity nodes at all levels.
+ * Count total LEAF entity nodes at all levels.
+ * Parent containers (floors, rooms with sub-units) are NOT counted
+ * because only leaf units can be rented and assigned tenants.
  */
 function countAllEntities(nodes: OverviewEntityNode[]): number {
   let count = 0;
   for (const node of nodes) {
-    count++;
+    // Only leaf nodes count as rentable units
+    if (node.isLeaf) count++;
     count += countAllEntities(node.children);
   }
   return count;

@@ -117,11 +117,29 @@ export async function POST(req: Request) {
     if (rentableEntityId) {
       const entity = await prisma.rentableEntity.findUnique({
         where: { id: rentableEntityId },
-        select: { id: true, ownerId: true, status: true },
+        select: {
+          id: true,
+          ownerId: true,
+          status: true,
+          name: true,
+          type: true,
+          children: { select: { id: true, name: true, type: true } },
+        },
       });
 
       if (!entity) {
         return NextResponse.json({ error: 'Rental entity not found.' }, { status: 404 });
+      }
+
+      // STRICT RULE: If entity has child sub-units (e.g. rooms under a floor, beds under a room),
+      // tenants can only be assigned to leaf sub-units (e.g. bed), never to the upper/parent unit.
+      if (entity.children.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Cannot assign a tenant to "${entity.name}" (${entity.type}) because it contains ${entity.children.length} sub-unit(s). Tenants can only be assigned directly to leaf units (e.g., individual beds or standalone rooms).`,
+          },
+          { status: 400 },
+        );
       }
 
       if (!isSuperAdmin && entity.ownerId !== ds.ownerId && entity.ownerId !== session.user.id) {
