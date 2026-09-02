@@ -530,9 +530,9 @@ export async function getPortfolioOverview(
       const subPropExpected = units.reduce((s, u) => s + u.monthlyExpected, 0);
       const monthlyExpected = entityExpected + subPropExpected;
 
-      // ── Occupancy counts ──────────────────────────────────────────────────
-      const entityOccupied = countOccupiedEntities(rentableEntities);
-      const entityCount = countAllEntities(rentableEntities);
+      const hasHierarchy = rentableEntities.length > 0;
+      const entityCount = hasHierarchy ? countAllEntities(rentableEntities) : 0;
+      const entityOccupied = hasHierarchy ? countOccupiedEntities(rentableEntities) : 0;
 
       return {
         id: pr.id,
@@ -543,8 +543,13 @@ export async function getPortfolioOverview(
         country: pr.country,
         status: pr.status,
         type: pr.type,
-        unitCount: units.length + entityCount,
-        occupiedCount: units.filter((u) => u.status === 'OCCUPIED').length + entityOccupied,
+        // When a RentableEntity hierarchy exists, count ONLY leaf entity nodes.
+        // Flat SubProperty units are still tracked in `units` for display/ledger,
+        // but they should NOT inflate the unit count when a hierarchy takes precedence.
+        unitCount: hasHierarchy ? entityCount : units.length,
+        occupiedCount: hasHierarchy
+          ? entityOccupied
+          : units.filter((u) => u.status === 'OCCUPIED').length,
         monthlyExpected,
         monthlyCollected: units.reduce((s, u) => s + u.monthlyCollected, 0),
         overdueCount: units.filter((u) => u.overdueAmount > 0).length,
