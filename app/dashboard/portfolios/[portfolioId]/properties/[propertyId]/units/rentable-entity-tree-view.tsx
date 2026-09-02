@@ -1,10 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import type { RentableEntityNode } from '@/lib/rentable-entities';
 import { RENTABLE_ENTITY_TYPE_LABELS } from '@/lib/rentable-entities';
 import { formatRent, subPropertyStatusBadgeClass, subPropertyStatusLabel } from '@/lib/sub-property-types';
 import NotesIcon from '@/components/ui/notes-icon';
+import type { VacantUnit } from '@/components/portfolios/assign-tenant-modal';
 
 const TYPE_ICONS: Record<string, string> = {
   PROPERTY: '🏢',
@@ -22,9 +23,19 @@ const TYPE_BADGES: Record<string, string> = {
   BED: 'border-amber-200 bg-amber-50 text-amber-800 font-semibold',
 };
 
-function TreeNode({ node, depth = 0 }: { node: RentableEntityNode; depth?: number }) {
+function TreeNode({
+  node,
+  depth = 0,
+  onAssignTenant,
+}: {
+  node: RentableEntityNode;
+  depth?: number;
+  onAssignTenant?: (unit: VacantUnit) => void;
+}) {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = node.children.length > 0;
+  const isLeaf = !hasChildren;
+  const occupied = node.status === 'OCCUPIED';
 
   return (
     <div className="flex flex-col">
@@ -86,21 +97,48 @@ function TreeNode({ node, depth = 0 }: { node: RentableEntityNode; depth?: numbe
             </div>
           </div>
 
-          <span
-            className={
-              'inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ' +
-              subPropertyStatusBadgeClass(node.status)
-            }
-          >
-            {subPropertyStatusLabel(node.status)}
-          </span>
+          {/* Structural parent vs leaf node status */}
+          {!isLeaf ? (
+            <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[10px] font-bold text-zinc-600">
+              {node.children.length} sub-unit{node.children.length !== 1 ? 's' : ''}
+            </span>
+          ) : (
+            <>
+              <span
+                className={
+                  'inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ' +
+                  subPropertyStatusBadgeClass(node.status)
+                }
+              >
+                {subPropertyStatusLabel(node.status)}
+              </span>
+
+              {!occupied && onAssignTenant && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onAssignTenant({
+                      id: node.id,
+                      name: node.name,
+                      unitNumber: node.code,
+                      rentAmount: node.rentAmount,
+                      isRentableEntity: true,
+                    })
+                  }
+                  className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white shadow-xs transition hover:bg-emerald-700"
+                >
+                  🔑 Assign Tenant
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
 
       {expanded && hasChildren && (
         <div className="flex flex-col">
           {node.children.map((child) => (
-            <TreeNode key={child.id} node={child} depth={depth + 1} />
+            <TreeNode key={child.id} node={child} depth={depth + 1} onAssignTenant={onAssignTenant} />
           ))}
         </div>
       )}
@@ -108,7 +146,13 @@ function TreeNode({ node, depth = 0 }: { node: RentableEntityNode; depth?: numbe
   );
 }
 
-export default function RentableEntityTreeView({ entities }: { entities: RentableEntityNode[] }) {
+export default function RentableEntityTreeView({
+  entities,
+  onAssignTenant,
+}: {
+  entities: RentableEntityNode[];
+  onAssignTenant?: (unit: VacantUnit) => void;
+}) {
   if (!entities || entities.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-zinc-200 bg-white p-8 text-center shadow-xs">
@@ -127,7 +171,7 @@ export default function RentableEntityTreeView({ entities }: { entities: Rentabl
       </div>
       <div className="divide-y divide-zinc-100">
         {entities.map((node) => (
-          <TreeNode key={node.id} node={node} />
+          <TreeNode key={node.id} node={node} onAssignTenant={onAssignTenant} />
         ))}
       </div>
     </div>

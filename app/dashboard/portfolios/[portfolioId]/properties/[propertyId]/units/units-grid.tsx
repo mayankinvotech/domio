@@ -18,6 +18,7 @@ import RentableEntityTreeView from './rentable-entity-tree-view';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { ButtonLink } from '@/components/ui/button';
+import AssignTenantModal, { type VacantUnit } from '@/components/portfolios/assign-tenant-modal';
 
 const STORAGE_KEY = 'domio-units-view';
 
@@ -57,8 +58,14 @@ export default function UnitsGrid({
   const [view, setView] = useState<View>('card');
   const [filter, setFilter] = useState<StatusFilter>('ALL');
   const [search, setSearch] = useState('');
-  const [displayTab, setDisplayTab] = useState<'blocks' | 'hierarchy'>('blocks');
+  const [displayTab, setDisplayTab] = useState<'blocks' | 'hierarchy'>(() =>
+    units.length === 0 && rentableEntities.length > 0 ? 'hierarchy' : 'blocks'
+  );
   const [mounted, setMounted] = useState(false);
+  const [assignModal, setAssignModal] = useState<{
+    open: boolean;
+    unit: VacantUnit | null;
+  }>({ open: false, unit: null });
 
   useEffect(() => {
     setItems(units);
@@ -166,6 +173,20 @@ export default function UnitsGrid({
     });
   }, [items, filter, search]);
 
+  const vacantFlatUnits: VacantUnit[] = useMemo(
+    () =>
+      items
+        .filter((u) => u.status === 'VACANT')
+        .map((u) => ({
+          id: u.id,
+          name: u.name,
+          unitNumber: u.unitNumber,
+          rentAmount: u.rentAmount,
+          isRentableEntity: false,
+        })),
+    [items]
+  );
+
   const base = `/dashboard/portfolios/${portfolioId}/properties/${propertyId}/units`;
 
   if (!mounted) return null;
@@ -188,7 +209,14 @@ export default function UnitsGrid({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setAssignModal({ open: true, unit: vacantFlatUnits[0] ?? null })}
+            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-emerald-700"
+          >
+            🔑 Assign Tenant
+          </button>
           <ButtonLink
             href={`${base}/new`}
             variant="primary"
@@ -299,7 +327,10 @@ export default function UnitsGrid({
 
       {displayTab === 'hierarchy' ? (
         <div className="mt-4">
-          <RentableEntityTreeView entities={rentableEntities} />
+          <RentableEntityTreeView
+            entities={rentableEntities}
+            onAssignTenant={(u) => setAssignModal({ open: true, unit: u })}
+          />
         </div>
       ) : (
         <>
@@ -483,12 +514,24 @@ export default function UnitsGrid({
                         View Detail →
                       </Link>
                       {u.status === 'VACANT' && (
-                        <Link
-                          href={`/dashboard/tenants`}
-                          className={primaryBtn}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAssignModal({
+                              open: true,
+                              unit: {
+                                id: u.id,
+                                name: u.name,
+                                unitNumber: u.unitNumber,
+                                rentAmount: u.rentAmount,
+                                isRentableEntity: false,
+                              },
+                            })
+                          }
+                          className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-xs transition-all hover:bg-emerald-700"
                         >
-                          Assign Tenant
-                        </Link>
+                          🔑 Assign Tenant
+                        </button>
                       )}
                       <Link
                         href={`${base}/${u.id}/edit`}
@@ -571,12 +614,24 @@ export default function UnitsGrid({
                             View →
                           </Link>
                           {u.status === 'VACANT' && (
-                            <Link
-                              href={`/dashboard/tenants`}
-                              className={primaryBtn}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAssignModal({
+                                  open: true,
+                                  unit: {
+                                    id: u.id,
+                                    name: u.name,
+                                    unitNumber: u.unitNumber,
+                                    rentAmount: u.rentAmount,
+                                    isRentableEntity: false,
+                                  },
+                                })
+                              }
+                              className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow-xs transition-all hover:bg-emerald-700"
                             >
-                              Assign
-                            </Link>
+                              🔑 Assign
+                            </button>
                           )}
                           <Link
                             href={`${base}/${u.id}/edit`}
@@ -604,6 +659,15 @@ export default function UnitsGrid({
           )}
         </>
       )}
+
+      {/* Assign Tenant Modal */}
+      <AssignTenantModal
+        isOpen={assignModal.open}
+        onClose={() => setAssignModal({ open: false, unit: null })}
+        preselectedUnit={assignModal.unit ?? undefined}
+        vacantUnits={vacantFlatUnits}
+        propertyId={propertyId}
+      />
 
       {/* 6. Delete Confirmation Modal */}
       {target && (
