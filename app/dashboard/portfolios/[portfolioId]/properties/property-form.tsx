@@ -23,18 +23,6 @@ const inputClass =
   'w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 shadow-xs outline-none transition placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10';
 const labelClass = 'text-xs font-bold uppercase tracking-wider text-zinc-700';
 
-const SUGGESTED_TYPES = [
-  'Flat',
-  'Land',
-  'Hospital',
-  'Hotel',
-  'Villa',
-  'Shop / Retail',
-  'Commercial Office',
-  'Warehouse',
-  'Farmhouse',
-];
-
 export default function PropertyForm({
   mode,
   portfolioId,
@@ -47,7 +35,6 @@ export default function PropertyForm({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [customType, setCustomType] = useState(property?.customType ?? '');
   const [images, setImages] = useState<string[]>(property?.images ?? []);
   const [listingStatus, setListingStatus] = useState<string>(
     property?.listingStatus ?? 'Available now',
@@ -124,8 +111,7 @@ export default function PropertyForm({
       address: data.get('address'),
       city: data.get('city'),
       country: data.get('country'),
-      type: data.get('type'),
-      customType: customType.trim() || data.get('customType'),
+      type: data.get('type') || 'RESIDENTIAL',
       status: data.get('status'),
       listingStatus,
       images: images.slice(0, 5),
@@ -168,39 +154,6 @@ export default function PropertyForm({
           defaultValue={property?.name ?? ''}
           className={inputClass}
         />
-      </div>
-
-      {/* Manual Property Type Input */}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="customType" className={labelClass}>
-          Property Type <span className="text-zinc-500 font-normal">(type manually or click suggestion)</span>
-        </label>
-        <input
-          id="customType"
-          name="customType"
-          type="text"
-          value={customType}
-          onChange={(e) => setCustomType(e.target.value)}
-          placeholder="e.g. Land, Hospital, Hotel, Flat, Villa, Shop, Warehouse"
-          className={inputClass}
-        />
-        {/* Quick Suggestion Chips */}
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {SUGGESTED_TYPES.map((st) => (
-            <button
-              key={st}
-              type="button"
-              onClick={() => setCustomType(st)}
-              className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
-                customType.toLowerCase() === st.toLowerCase()
-                  ? 'border-zinc-900 bg-zinc-900 text-white'
-                  : 'border-zinc-200 bg-zinc-100/70 text-zinc-700 hover:bg-zinc-200 hover:text-black'
-              }`}
-            >
-              {st}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
