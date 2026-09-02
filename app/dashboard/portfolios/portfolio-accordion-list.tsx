@@ -17,7 +17,9 @@ import { formatMoney } from '@/lib/tenancy-types';
 import type {
   OverviewPortfolio,
   OverviewProperty,
+  OverviewEntityNode,
 } from '@/lib/portfolio-overview';
+import type { RentableEntityNode } from '@/lib/rentable-entities';
 import UnitsGrid from '@/app/dashboard/portfolios/[portfolioId]/properties/[propertyId]/units/units-grid';
 import type { SubPropertyListItem } from '@/lib/sub-properties';
 import PortfolioReportButton from '@/components/reports/portfolio-report-button';
@@ -681,6 +683,38 @@ function PortfolioExpand({
   );
 }
 
+function mapEntityNode(
+  e: OverviewEntityNode,
+  propertyId: string,
+): RentableEntityNode {
+  return {
+    id: e.id,
+    displayId: e.displayId,
+    type: e.type,
+    name: e.name,
+    code: e.code,
+    areaSqft: e.areaSqft,
+    rentAmount: e.listedRent,
+    status: e.status,
+    notes: e.notes,
+    sortOrder: e.sortOrder,
+    parentId: e.parentId,
+    propertyId,
+    activeLease: e.activeLease
+      ? {
+          tenancyId: e.activeLease.tenancyId,
+          tenantName: e.activeLease.tenantName,
+          monthlyRent: e.activeLease.monthlyRent,
+          startDate: new Date(),
+          endDate: e.activeLease.endDate,
+        }
+      : null,
+    aggregatedRent: e.effectiveRent,
+    aggregatedCollection: 0,
+    children: e.children.map((c) => mapEntityNode(c, propertyId)),
+  };
+}
+
 function PropertyRow({
   portfolioId,
   property,
@@ -837,32 +871,9 @@ function PropertyRow({
             notes: u.notes,
             currentTenantName: u.tenantName,
           }))}
-          rentableEntities={property.rentableEntities.map((e) => ({
-            id: e.id,
-            displayId: e.displayId,
-            type: e.type,
-            name: e.name,
-            code: e.code,
-            areaSqft: e.areaSqft,
-            rentAmount: e.listedRent,
-            status: e.status,
-            notes: e.notes,
-            sortOrder: e.sortOrder,
-            parentId: e.parentId,
-            propertyId: property.id,
-            activeLease: e.activeLease
-              ? {
-                  tenancyId: e.activeLease.tenancyId,
-                  tenantName: e.activeLease.tenantName,
-                  monthlyRent: e.activeLease.monthlyRent,
-                  startDate: new Date(),
-                  endDate: e.activeLease.endDate,
-                }
-              : null,
-            aggregatedRent: e.effectiveRent,
-            aggregatedCollection: 0,
-            children: [],
-          }))}
+          rentableEntities={property.rentableEntities.map((e) =>
+            mapEntityNode(e, property.id)
+          )}
         />
       </div>
     </div>
