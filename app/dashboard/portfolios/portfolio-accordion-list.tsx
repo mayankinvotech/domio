@@ -710,7 +710,7 @@ function mapEntityNode(
         }
       : null,
     aggregatedRent: e.effectiveRent,
-    aggregatedCollection: 0,
+    aggregatedCollection: e.aggregatedCollection,
     children: e.children.map((c) => mapEntityNode(c, propertyId)),
   };
 }

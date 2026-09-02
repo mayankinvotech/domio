@@ -66,6 +66,8 @@ export type OverviewEntityNode = {
   //   - If this node has children → sum of children's effectiveRent
   //   - If leaf node → activeLease.monthlyRent ?? listedRent
   effectiveRent: number;
+  // Aggregated collection (amount paid) from this node + all descendants
+  aggregatedCollection: number;
   children: OverviewEntityNode[];
 };
 
@@ -150,6 +152,7 @@ type FlatEntityRow = {
     monthlyRent: number;
     endDate: Date;
     tenant: { name: string };
+    rentLedger: { amountPaid: number }[];
   }[];
 };
 
@@ -161,9 +164,13 @@ type FlatEntityRow = {
  */
 function buildEntityTree(rows: FlatEntityRow[]): OverviewEntityNode[] {
   // First pass: create all nodes (isLeaf computed in second pass after wiring children)
-  const nodeMap = new Map<string, OverviewEntityNode>();
+  const nodeMap = new Map<string, OverviewEntityNode & { directCollection: number }>();
   for (const row of rows) {
     const lease = row.tenancies[0] ?? null;
+    const directColl = lease
+      ? lease.rentLedger.reduce((sum, item) => sum + item.amountPaid, 0)
+      : 0;
+
     nodeMap.set(row.id, {
       id: row.id,
       displayId: row.displayId,
@@ -186,6 +193,8 @@ function buildEntityTree(rows: FlatEntityRow[]): OverviewEntityNode[] {
           }
         : null,
       effectiveRent: 0, // computed in third pass
+      aggregatedCollection: directColl,
+      directCollection: directColl,
       children: [],
     });
   }
@@ -221,22 +230,30 @@ function buildEntityTree(rows: FlatEntityRow[]): OverviewEntityNode[] {
   });
   for (const root of roots) sortChildren(root);
 
-  // Third pass: bottom-up effectiveRent
-  function computeEffectiveRent(node: OverviewEntityNode): number {
+  // Third pass: bottom-up effectiveRent and aggregatedCollection
+  function aggregateNode(node: OverviewEntityNode & { directCollection: number }): {
+    rent: number;
+    collection: number;
+  } {
+    let childRentSum = 0;
+    let childCollSum = 0;
+    for (const child of node.children) {
+      const res = aggregateNode(child as OverviewEntityNode & { directCollection: number });
+      childRentSum += res.rent;
+      childCollSum += res.collection;
+    }
+
     if (node.children.length === 0) {
       // Leaf: use active lease rent, or the listed price
       node.effectiveRent = node.activeLease?.monthlyRent ?? node.listedRent;
     } else {
-      // Parent: sum children only (ignore own listed rent when children exist)
-      let childSum = 0;
-      for (const child of node.children) {
-        childSum += computeEffectiveRent(child);
-      }
-      node.effectiveRent = childSum;
+      // Parent: if parent itself has an active lease, use that; otherwise sum of children
+      node.effectiveRent = node.activeLease?.monthlyRent ?? childRentSum;
     }
-    return node.effectiveRent;
+    node.aggregatedCollection = node.directCollection + childCollSum;
+    return { rent: node.effectiveRent, collection: node.aggregatedCollection };
   }
-  for (const root of roots) computeEffectiveRent(root);
+  for (const root of roots) aggregateNode(root as OverviewEntityNode & { directCollection: number });
 
   return roots;
 }
@@ -419,6 +436,9 @@ export async function getPortfolioOverview(
             monthlyRent: true,
             endDate: true,
             tenant: { select: { name: true } },
+            rentLedger: {
+              select: { amountPaid: true },
+            },
           },
         },
       },
@@ -551,7 +571,9 @@ export async function getPortfolioOverview(
           ? entityOccupied
           : units.filter((u) => u.status === 'OCCUPIED').length,
         monthlyExpected,
-        monthlyCollected: units.reduce((s, u) => s + u.monthlyCollected, 0),
+        monthlyCollected:
+          units.reduce((s, u) => s + u.monthlyCollected, 0) +
+          rentableEntities.reduce((s, n) => s + n.aggregatedCollection, 0),
         overdueCount: units.filter((u) => u.overdueAmount > 0).length,
         expiringCount: units.filter((u) => u.expiringSoon).length,
         documentCount: docCounts.get(pr.id) ?? 0,
