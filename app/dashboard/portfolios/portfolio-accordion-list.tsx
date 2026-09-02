@@ -792,9 +792,6 @@ function PropertyRow({
 
         {/* Action buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={`${base}/units`} className={ghostBtn}>
-            Manage Units →
-          </Link>
           {canManage && (
             <>
               {/* Restore original + Add Unit link to the full unit/entity form page */}
@@ -819,6 +816,42 @@ function PropertyRow({
               </button>
             </>
           )}
+        </div>
+      </div>
+
+      {/* Stats cards — mirrors the Manage Units page */}
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-3">
+        <div className="rounded-xl border border-zinc-200/80 bg-zinc-50 px-4 py-3 shadow-xs">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Units</p>
+          <p className="mt-1 font-mono text-xl font-bold text-zinc-900">{property.unitCount}</p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Total rentable spaces</p>
+        </div>
+        <div className="rounded-xl border border-zinc-200/80 bg-zinc-50 px-4 py-3 shadow-xs">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Occupancy</p>
+            <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
+              {property.unitCount > 0 ? Math.round((property.occupiedCount / property.unitCount) * 100) : 0}%
+            </span>
+          </div>
+          <p className="mt-1 font-mono text-xl font-bold text-zinc-900">
+            {property.occupiedCount}/{property.unitCount}
+          </p>
+          <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-zinc-200">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all"
+              style={{ width: `${property.unitCount > 0 ? Math.min(Math.round((property.occupiedCount / property.unitCount) * 100), 100) : 0}%` }}
+            />
+          </div>
+        </div>
+        <div className="rounded-xl border border-zinc-200/80 bg-zinc-50 px-4 py-3 shadow-xs">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Expected Rent</p>
+          <p className="mt-1 font-mono text-xl font-bold text-emerald-600">{formatMoney(property.monthlyExpected)}</p>
+          <p className="mt-0.5 text-[11px] text-zinc-400">Monthly potential</p>
+        </div>
+        <div className="rounded-xl border border-zinc-200/80 bg-zinc-50 px-4 py-3 shadow-xs">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Available</p>
+          <p className="mt-1 font-mono text-xl font-bold text-amber-600">{property.unitCount - property.occupiedCount}</p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Ready to lease</p>
         </div>
       </div>
 
