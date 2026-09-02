@@ -860,6 +860,7 @@ function PropertyRow({
           portfolioId={portfolioId}
           propertyId={property.id}
           propertyName={property.name}
+          defaultTab={property.rentableEntities.length > 0 ? 'hierarchy' : 'blocks'}
           units={property.units.map((u): SubPropertyListItem => ({
             id: u.id,
             name: u.name,

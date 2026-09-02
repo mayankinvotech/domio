@@ -44,12 +44,14 @@ export default function UnitsGrid({
   propertyName,
   units,
   rentableEntities = [],
+  defaultTab,
 }: {
   portfolioId: string;
   propertyId: string;
   propertyName: string;
   units: SubPropertyListItem[];
   rentableEntities?: RentableEntityNode[];
+  defaultTab?: 'blocks' | 'hierarchy';
 }) {
   const [items, setItems] = useState(units);
   const [target, setTarget] = useState<SubPropertyListItem | null>(null);
@@ -58,9 +60,10 @@ export default function UnitsGrid({
   const [view, setView] = useState<View>('card');
   const [filter, setFilter] = useState<StatusFilter>('ALL');
   const [search, setSearch] = useState('');
-  const [displayTab, setDisplayTab] = useState<'blocks' | 'hierarchy'>(() =>
-    units.length === 0 && rentableEntities.length > 0 ? 'hierarchy' : 'blocks'
-  );
+  const [displayTab, setDisplayTab] = useState<'blocks' | 'hierarchy'>(() => {
+    if (defaultTab) return defaultTab;
+    return units.length === 0 && rentableEntities.length > 0 ? 'hierarchy' : 'blocks';
+  });
   const [mounted, setMounted] = useState(false);
   const [assignModal, setAssignModal] = useState<{
     open: boolean;
