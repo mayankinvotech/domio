@@ -1,4 +1,4 @@
-'use client';
+ï»¿'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -167,7 +167,7 @@ export default function AssignTenantModal({
             <div>
               <h2 className="text-base font-bold text-zinc-900">Assign Tenant</h2>
               {activeUnit && (
-                <p className="text-xs text-zinc-500">{activeUnit.name} · {activeUnit.unitNumber}</p>
+                <p className="text-xs text-zinc-500">{activeUnit.name} Â· {activeUnit.unitNumber}</p>
               )}
             </div>
           </div>
@@ -193,11 +193,11 @@ export default function AssignTenantModal({
           {/* Tenant search */}
           <div className="relative">
             <label className={lbl}>Select Tenant *</label>
-            <input type="text" placeholder="Search by name, phone, or email…"
+            <input type="text" placeholder="Search by name, phone, or emailâ€¦"
               value={tenantSearch} onChange={(e) => onTenantInput(e.target.value)}
               onFocus={() => tenantSearch.length >= 1 && setShowDropdown(true)}
               className={input} autoComplete="off" />
-            {tenantLoading && <span className="absolute right-3 top-8 text-xs text-zinc-400">Searching…</span>}
+            {tenantLoading && <span className="absolute right-3 top-8 text-xs text-zinc-400">Searchingâ€¦</span>}
             {showDropdown && tenantResults.length > 0 && (
               <div className="absolute z-20 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-xl max-h-52 overflow-y-auto">
                 {tenantResults.map((t) => (
@@ -205,7 +205,7 @@ export default function AssignTenantModal({
                     className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm hover:bg-zinc-50 transition-colors border-b border-zinc-50 last:border-0">
                     <div>
                       <p className="font-semibold text-zinc-900">{t.name}</p>
-                      <p className="text-xs text-zinc-500">{t.phone}{t.email ? ` · ${t.email}` : ''}</p>
+                      <p className="text-xs text-zinc-500">{t.phone}{t.email ? ` Â· ${t.email}` : ''}</p>
                     </div>
                     {t.currentUnit && (
                       <span className="shrink-0 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
@@ -286,7 +286,7 @@ export default function AssignTenantModal({
           </div>
 
           <div className="w-1/2 pr-1.5">
-            <label className={lbl}>Payment Day of Month (1–28)</label>
+            <label className={lbl}>Payment Day of Month (1â€“28)</label>
             <input type="number" min="1" max="28" value={paymentDay}
               onChange={(e) => setPaymentDay(e.target.value)} className={input} required />
           </div>
@@ -296,7 +296,7 @@ export default function AssignTenantModal({
           )}
           {success && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
-              ? Tenant assigned! Refreshing…
+              ? Tenant assigned! Refreshingâ€¦
             </div>
           )}
 
@@ -308,7 +308,7 @@ export default function AssignTenantModal({
             <button type="submit" disabled={pending || success || !selectedTenant}
               className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-6 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60">
               {pending ? (
-                <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />Assigning…</>
+                <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />Assigningâ€¦</>
               ) : '?? Assign Tenant'}
             </button>
           </div>

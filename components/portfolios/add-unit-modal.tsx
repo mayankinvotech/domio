@@ -1,4 +1,4 @@
-'use client';
+ï»¿'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -249,7 +249,7 @@ export default function AddUnitModal({
           <div>
             <label className={lbl}>Notes</label>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
-              rows={2} placeholder="Optional notes…" className={input + ' resize-none'} />
+              rows={2} placeholder="Optional notesâ€¦" className={input + ' resize-none'} />
           </div>
 
           {error && (
@@ -257,7 +257,7 @@ export default function AddUnitModal({
           )}
           {success && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
-              ? Unit added! Refreshing…
+              ? Unit added! Refreshingâ€¦
             </div>
           )}
 
@@ -269,7 +269,7 @@ export default function AddUnitModal({
             <button type="submit" disabled={pending || success}
               className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60">
               {pending ? (
-                <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />Adding…</>
+                <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />Addingâ€¦</>
               ) : mode === 'flat' ? '+ Add Unit' : '+ Add Hierarchy Unit'}
             </button>
           </div>
