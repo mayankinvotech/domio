@@ -1,6 +1,8 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import type { RentableEntityNode } from '@/lib/rentable-entities';
 import { RENTABLE_ENTITY_TYPE_LABELS } from '@/lib/rentable-entities';
 import { formatRent, subPropertyStatusBadgeClass, subPropertyStatusLabel } from '@/lib/sub-property-types';
@@ -26,12 +28,20 @@ const TYPE_BADGES: Record<string, string> = {
 function TreeNode({
   node,
   depth = 0,
+  portfolioId,
+  propertyId,
   onAssignTenant,
 }: {
   node: RentableEntityNode;
   depth?: number;
+  portfolioId?: string;
+  propertyId?: string;
   onAssignTenant?: (unit: VacantUnit) => void;
 }) {
+  const params = useParams();
+  const pId = portfolioId || (params?.portfolioId as string) || '';
+  const propId = propertyId || node.propertyId || (params?.propertyId as string) || '';
+
   const [expanded, setExpanded] = useState(true);
   const hasChildren = node.children.length > 0;
   const isLeaf = !hasChildren;
@@ -132,13 +142,32 @@ function TreeNode({
               )}
             </>
           )}
+
+          {/* Add Sub-unit option (available on any non-bed unit to add a child level under it) */}
+          {node.type !== 'BED' && pId && propId && (
+            <Link
+              href={`/dashboard/portfolios/${pId}/properties/${propId}/units/new?parentId=${node.id}`}
+              className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 shadow-xs transition hover:bg-blue-100 hover:border-blue-300 hover:text-blue-900 active:scale-95"
+              title={`Add sub-unit under ${node.name}`}
+            >
+              <span className="font-bold">+</span>
+              <span>Sub-unit</span>
+            </Link>
+          )}
         </div>
       </div>
 
       {expanded && hasChildren && (
         <div className="flex flex-col">
           {node.children.map((child) => (
-            <TreeNode key={child.id} node={child} depth={depth + 1} onAssignTenant={onAssignTenant} />
+            <TreeNode
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              portfolioId={pId}
+              propertyId={propId}
+              onAssignTenant={onAssignTenant}
+            />
           ))}
         </div>
       )}
@@ -148,9 +177,13 @@ function TreeNode({
 
 export default function RentableEntityTreeView({
   entities,
+  portfolioId,
+  propertyId,
   onAssignTenant,
 }: {
   entities: RentableEntityNode[];
+  portfolioId?: string;
+  propertyId?: string;
   onAssignTenant?: (unit: VacantUnit) => void;
 }) {
   if (!entities || entities.length === 0) {
@@ -171,7 +204,13 @@ export default function RentableEntityTreeView({
       </div>
       <div className="divide-y divide-zinc-100">
         {entities.map((node) => (
-          <TreeNode key={node.id} node={node} onAssignTenant={onAssignTenant} />
+          <TreeNode
+            key={node.id}
+            node={node}
+            portfolioId={portfolioId}
+            propertyId={propertyId}
+            onAssignTenant={onAssignTenant}
+          />
         ))}
       </div>
     </div>

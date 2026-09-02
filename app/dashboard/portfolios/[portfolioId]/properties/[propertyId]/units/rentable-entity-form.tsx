@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { RentableEntityType } from '@prisma/client';
 import { SUB_PROPERTY_STATUSES } from '@/lib/sub-property-types';
@@ -40,6 +40,15 @@ function flattenTree(
   return result;
 }
 
+function findNode(nodes: RentableEntityNode[], id: string): RentableEntityNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const found = findNode(n.children, id);
+    if (found) return found;
+  }
+  return null;
+}
+
 export default function AddRentableEntityForm({
   portfolioId,
   propertyId,
@@ -54,11 +63,16 @@ export default function AddRentableEntityForm({
   propertyAddress?: string;
   properties?: { id: string; name: string; address?: string }[];
   listHref: string;
+  initialParentId?: string;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetParentId = initialParentId || searchParams?.get('parentId') || '';
+
   const [selectedPropertyId, setSelectedPropertyId] = useState(propertyId);
   const [entityType, setEntityType] = useState<RentableEntityType>('FLOOR');
-  const [parentId, setParentId] = useState<string>('');
+  const [parentId, setParentId] = useState<string>(targetParentId);
+  const [parentApplied, setParentApplied] = useState(false);
   const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
   const [existingEntities, setExistingEntities] = useState<RentableEntityNode[]>([]);
   const [loadingEntities, setLoadingEntities] = useState(false);
@@ -83,6 +97,26 @@ export default function AddRentableEntityForm({
       .catch(() => setLoadingEntities(false));
   }, [selectedPropertyId]);
 
+  // When existing entities load and a targetParentId was passed, auto-select it and set the appropriate child entityType
+  useEffect(() => {
+    if (!parentApplied && targetParentId && existingEntities.length > 0) {
+      const parentNode = findNode(existingEntities, targetParentId);
+      if (parentNode) {
+        if (parentNode.type === 'PROPERTY') {
+          setEntityType('ROOM');
+        } else if (parentNode.type === 'FLOOR') {
+          setEntityType('ROOM');
+        } else if (parentNode.type === 'ROOM') {
+          setEntityType('BED');
+        } else if (parentNode.type === 'OFFICE') {
+          setEntityType('BED');
+        }
+        setParentId(targetParentId);
+        setParentApplied(true);
+      }
+    }
+  }, [targetParentId, existingEntities, parentApplied]);
+
   const needsParent = VALID_PARENT_TYPES[entityType].length > 0;
   const validParents = flattenTree(existingEntities).filter((e) =>
     VALID_PARENT_TYPES[entityType].includes(e.type),
@@ -91,9 +125,10 @@ export default function AddRentableEntityForm({
   // Automatically select the default parent entity whenever validParents is available
   useEffect(() => {
     if (needsParent && validParents.length > 0) {
-      if (!parentId || !validParents.some((p) => p.id === parentId)) {
-        setParentId(validParents[0].id);
+      if (parentId && validParents.some((p) => p.id === parentId)) {
+        return;
       }
+      setParentId(validParents[0].id);
     } else if (!needsParent) {
       setParentId('');
     }
@@ -234,6 +269,31 @@ export default function AddRentableEntityForm({
       </div>
 
       <form onSubmit={onSubmit} autoComplete="off" className="flex flex-col gap-4">
+        {/* Pre-selected parent confirmation badge */}
+        {parentId && findNode(existingEntities, parentId) && (
+          <div className="flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-900 shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-base">📌</span>
+              <p className="truncate">
+                Adding sub-unit under:{' '}
+                <strong className="font-bold">
+                  {findNode(existingEntities, parentId)?.name}
+                </strong>{' '}
+                (
+                {
+                  RENTABLE_ENTITY_TYPE_LABELS[
+                    findNode(existingEntities, parentId)!.type
+                  ]
+                }{' '}
+                · {findNode(existingEntities, parentId)?.code})
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-blue-200/80 px-2 py-0.5 text-[10px] font-bold text-blue-800">
+              Parent Selected ✓
+            </span>
+          </div>
+        )}
+
         {/* Parent entity picker (shown when the selected type requires a parent) */}
         {needsParent && (
           <div className="flex flex-col gap-1.5">

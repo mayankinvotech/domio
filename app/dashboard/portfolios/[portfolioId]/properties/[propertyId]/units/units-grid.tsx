@@ -325,6 +325,8 @@ export default function UnitsGrid({
         <div className="mt-4">
           <RentableEntityTreeView
             entities={rentableEntities}
+            portfolioId={portfolioId}
+            propertyId={propertyId}
             onAssignTenant={(u) => setAssignModal({ open: true, unit: u })}
           />
         </div>

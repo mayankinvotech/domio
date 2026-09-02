@@ -8,13 +8,17 @@ import AddRentableEntityForm from '../rentable-entity-form';
 
 export default async function NewUnitPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ portfolioId: string; propertyId: string }>;
+  searchParams?: Promise<{ parentId?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect('/login');
 
   const { portfolioId, propertyId } = await params;
+  const sp = searchParams ? await searchParams : {};
+  const parentId = sp?.parentId;
   const ds = await resolveDataScope(session.user);
   const property = await getOwnedProperty(propertyId, ds.ownerId);
   if (!property || property.portfolioId !== portfolioId) notFound();
@@ -65,6 +69,7 @@ export default async function NewUnitPage({
             address: `${p.address}, ${p.city}`,
           }))}
           listHref={listHref}
+          initialParentId={parentId}
         />
       </div>
     </div>
