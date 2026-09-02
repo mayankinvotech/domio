@@ -7,7 +7,6 @@ export type AddUnitModalProps = {
   isOpen: boolean;
   onClose: () => void;
   propertyId: string;
-  /** If provided, pre-selects this entity as the parent (for Add Sub-unit flows) */
   parentEntityId?: string;
   parentEntityName?: string;
   parentEntityType?: string;
@@ -16,7 +15,6 @@ export type AddUnitModalProps = {
 const input = 'w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-zinc-900 focus:bg-white focus:ring-2 focus:ring-zinc-900/10';
 const lbl = 'block text-xs font-semibold text-zinc-700 mb-1';
 
-// Which child types are valid given a parent type
 const VALID_CHILD_TYPES: Record<string, string[]> = {
   PROPERTY: ['FLOOR', 'ROOM', 'OFFICE', 'BED'],
   FLOOR:    ['ROOM', 'OFFICE', 'BED'],
@@ -45,7 +43,6 @@ export default function AddUnitModal({
 }: AddUnitModalProps) {
   const router = useRouter();
 
-  // Mode: 'flat' = SubProperty, 'entity' = RentableEntity
   const [mode, setMode] = useState<'flat' | 'entity'>(parentEntityId ? 'entity' : 'flat');
   const [entityType, setEntityType] = useState<string>(
     parentEntityType ? (VALID_CHILD_TYPES[parentEntityType]?.[0] ?? 'ROOM') : 'FLOOR'
@@ -82,7 +79,6 @@ export default function AddUnitModal({
     setPending(true);
     try {
       if (mode === 'flat') {
-        // Create a standard SubProperty unit
         const res = await fetch('/api/sub-properties', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -96,7 +92,6 @@ export default function AddUnitModal({
         const json = await res.json().catch(() => null);
         if (!res.ok) { setError(json?.error ?? 'Failed to add unit.'); return; }
       } else {
-        // Create a RentableEntity (hierarchy node)
         const res = await fetch('/api/rentable-entities', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -153,7 +148,7 @@ export default function AddUnitModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-          {/* Mode toggle (only for top-level units, not sub-units) */}
+          {/* Mode toggle */}
           {!parentEntityId && (
             <div>
               <label className={lbl}>Unit Type</label>
@@ -175,7 +170,7 @@ export default function AddUnitModal({
             </div>
           )}
 
-          {/* Entity type selector (for hierarchy mode) */}
+          {/* Entity type selector */}
           {mode === 'entity' && (
             <div>
               <label className={lbl}>
@@ -200,7 +195,7 @@ export default function AddUnitModal({
               className={input} required />
           </div>
 
-          {/* Code (entity) / Unit Number (flat) */}
+          {/* Code / Unit Number */}
           {mode === 'entity' ? (
             <div>
               <label className={lbl}>Short Code</label>
@@ -227,12 +222,25 @@ export default function AddUnitModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lbl}>Listed Rent *</label>
-              <input type="number" min="0" step="0.01" value={rentAmount}
-                onChange={(e) => setRentAmount(e.target.value)} placeholder="0.00" className={input} required />
+              <div className="flex overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 shadow-xs focus-within:border-zinc-900 focus-within:bg-white focus-within:ring-2 focus-within:ring-zinc-900/10 transition">
+                <span className="shrink-0 flex items-center justify-center border-r border-zinc-200 bg-zinc-100/70 px-3 text-sm font-bold text-zinc-600 select-none">
+                  ?
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={rentAmount}
+                  onChange={(e) => setRentAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-base font-semibold font-mono text-zinc-900 outline-none placeholder:text-zinc-400 placeholder:font-sans placeholder:font-normal"
+                  required
+                />
+              </div>
             </div>
             <div>
               <label className={lbl}>Area (sqft)</label>
-              <input type="number" min="0" step="0.01" value={areaSqft}
+              <input type="number" min="0" step="any" value={areaSqft}
                 onChange={(e) => setAreaSqft(e.target.value)} placeholder="Optional" className={input} />
             </div>
           </div>

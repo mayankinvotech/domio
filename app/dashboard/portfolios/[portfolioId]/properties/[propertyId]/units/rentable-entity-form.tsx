@@ -313,13 +313,13 @@ export default function AddRentableEntityForm({
                 name="currency"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="shrink-0 border-r border-zinc-200 bg-zinc-50 px-2.5 py-2.5 text-sm font-semibold text-zinc-700 outline-none cursor-pointer hover:bg-zinc-100 transition"
-                style={{ minWidth: '7rem' }}
+                className="shrink-0 border-r border-zinc-200 bg-zinc-50 px-2.5 py-2.5 text-sm font-bold text-zinc-800 outline-none cursor-pointer hover:bg-zinc-100 transition"
+                style={{ width: '4.75rem' }}
                 aria-label="Currency"
               >
                 {CURRENCIES.map((c) => (
                   <option key={c.code} value={c.code}>
-                    {c.symbol} {c.code} — {c.name}
+                    {c.symbol} {c.code}
                   </option>
                 ))}
               </select>
@@ -330,8 +330,8 @@ export default function AddRentableEntityForm({
                 min="0"
                 step="any"
                 required
-                placeholder="0"
-                className="min-w-0 flex-1 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
+                placeholder="0.00"
+                className="min-w-0 flex-1 bg-white px-3.5 py-2.5 text-base font-semibold text-zinc-900 outline-none placeholder:text-zinc-400 placeholder:font-normal"
               />
             </div>
           </div>

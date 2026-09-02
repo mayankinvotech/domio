@@ -246,22 +246,47 @@ export default function AssignTenantModal({
             </div>
           </div>
 
-          {/* Rent */}
+          {/* Rent & Deposit with spacious currency badge */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lbl}>Monthly Rent *</label>
-              <input type="number" min="0" step="0.01" value={rent}
-                onChange={(e) => setRent(e.target.value)} placeholder="0.00" className={input} required />
+              <div className="flex overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 shadow-xs focus-within:border-zinc-900 focus-within:bg-white focus-within:ring-2 focus-within:ring-zinc-900/10 transition">
+                <span className="shrink-0 flex items-center justify-center border-r border-zinc-200 bg-zinc-100/70 px-3 text-sm font-bold text-zinc-600 select-none">
+                  ?
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={rent}
+                  onChange={(e) => setRent(e.target.value)}
+                  placeholder="0.00"
+                  className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-base font-semibold font-mono text-zinc-900 outline-none placeholder:text-zinc-400 placeholder:font-sans placeholder:font-normal"
+                  required
+                />
+              </div>
             </div>
             <div>
               <label className={lbl}>Security Deposit</label>
-              <input type="number" min="0" step="0.01" value={deposit}
-                onChange={(e) => setDeposit(e.target.value)} placeholder="0.00" className={input} />
+              <div className="flex overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 shadow-xs focus-within:border-zinc-900 focus-within:bg-white focus-within:ring-2 focus-within:ring-zinc-900/10 transition">
+                <span className="shrink-0 flex items-center justify-center border-r border-zinc-200 bg-zinc-100/70 px-3 text-sm font-bold text-zinc-600 select-none">
+                  ?
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={deposit}
+                  onChange={(e) => setDeposit(e.target.value)}
+                  placeholder="0.00"
+                  className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-base font-semibold font-mono text-zinc-900 outline-none placeholder:text-zinc-400 placeholder:font-sans placeholder:font-normal"
+                />
+              </div>
             </div>
           </div>
 
           <div className="w-1/2 pr-1.5">
-            <label className={lbl}>Payment Day (1–28)</label>
+            <label className={lbl}>Payment Day of Month (1–28)</label>
             <input type="number" min="1" max="28" value={paymentDay}
               onChange={(e) => setPaymentDay(e.target.value)} className={input} required />
           </div>

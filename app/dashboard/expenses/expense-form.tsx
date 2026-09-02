@@ -180,8 +180,8 @@ export default function ExpenseForm({
             name="currency"
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
-            className="shrink-0 border-r border-[#312D58] bg-[#1a1936] px-2.5 py-2 text-sm font-semibold text-white outline-none cursor-pointer hover:bg-[#232147] transition"
-            style={{ minWidth: '6.5rem' }}
+            className="shrink-0 border-r border-[#312D58] bg-[#1a1936] px-2.5 py-2 text-xs font-bold text-white outline-none cursor-pointer hover:bg-[#232147] transition"
+            style={{ width: '4.5rem' }}
             aria-label="Currency"
           >
             {CURRENCIES.map((c) => (
@@ -198,7 +198,8 @@ export default function ExpenseForm({
             step="any"
             required
             defaultValue={expense?.amount ?? ''}
-            className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-[#B0B0C8]"
+            className="min-w-0 flex-1 bg-transparent px-3 py-2 text-base font-semibold text-white outline-none placeholder:text-[#B0B0C8] placeholder:font-normal"
+            placeholder="0.00"
           />
         </div>
       </div>

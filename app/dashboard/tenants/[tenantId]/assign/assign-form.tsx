@@ -212,7 +212,8 @@ export default function AssignForm({
               id="currency"
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="shrink-0 border-r border-[#312D58] bg-transparent px-2.5 py-2 text-xs font-semibold text-[#E8E8F2] outline-none cursor-pointer"
+              className="shrink-0 border-r border-[#312D58] bg-transparent px-2.5 py-2 text-xs font-bold text-[#E8E8F2] outline-none cursor-pointer"
+              style={{ width: '4.5rem' }}
               aria-label="Currency"
             >
               {CURRENCIES.map((c) => (
@@ -229,8 +230,8 @@ export default function AssignForm({
               required
               value={rent}
               onChange={(e) => setRent(e.target.value)}
-              className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-[#B0B0C8]"
-              placeholder="Rent amount"
+              className="min-w-0 flex-1 bg-transparent px-3 py-2 text-base font-semibold text-white outline-none placeholder:text-[#B0B0C8] placeholder:font-normal"
+              placeholder="0.00"
             />
           </div>
         </div>
