@@ -262,20 +262,27 @@ export default function RentableEntityTreeView({
         )}
       </div>
 
-      {/* Scrollable table container — thead is sticky inside this container */}
-      <div className="relative overflow-auto" style={{ maxHeight: '580px' }}>
-        <table className="w-full min-w-[960px] text-left border-collapse text-sm">
+      {/* Scrollable table container — sticky thead with vertical & horizontal scroll */}
+      <div
+        className="relative overflow-x-auto overflow-y-scroll"
+        style={{
+          maxHeight: '340px',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#a1a1aa #f4f4f5',
+        }}
+      >
+        <table className="w-full min-w-[900px] text-left border-collapse text-sm">
           {/* ── Sticky thead: Row 1 = Headers, Row 2 = Column Filters ──────── */}
           <thead className="sticky top-0 z-20 bg-white">
             {/* Row 1 — Column Labels */}
             <tr className="bg-zinc-50/95 text-xs font-bold uppercase tracking-wider text-zinc-600 border-b border-zinc-200 shadow-2xs">
-              <th className="px-5 py-3 min-w-[280px]">Unit</th>
-              <th className="px-4 py-3 text-right min-w-[120px]">Direct</th>
-              <th className="px-4 py-3 text-right min-w-[130px]">Rent</th>
-              <th className="px-4 py-3 text-right min-w-[120px]">Collected</th>
-              <th className="px-4 py-3 text-center min-w-[150px]">Status</th>
-              <th className="px-4 py-3 text-center min-w-[130px]">Add Sub Unit</th>
-              <th className="px-4 py-3 text-right min-w-[130px]">Actions</th>
+              <th className="px-5 py-3 min-w-[260px]">Unit</th>
+              <th className="px-4 py-3 text-right min-w-[110px]">Direct</th>
+              <th className="px-4 py-3 text-right min-w-[120px]">Rent</th>
+              <th className="px-4 py-3 text-right min-w-[110px]">Collected</th>
+              <th className="px-4 py-3 text-center min-w-[140px]">Status</th>
+              <th className="px-3 py-3 text-center min-w-[70px]">Sub Unit</th>
+              <th className="px-4 py-3 text-right min-w-[120px]">Actions</th>
             </tr>
 
             {/* Row 2 — Column Filters */}
@@ -379,7 +386,7 @@ export default function RentableEntityTreeView({
               </th>
 
               {/* 6. Sub-unit filter */}
-              <th className="px-4 py-2 font-normal text-center">
+              <th className="px-3 py-2 font-normal text-center">
                 <select
                   value={subUnitFilter}
                   onChange={(e) => setSubUnitFilter(e.target.value as SubUnitFilter)}
@@ -387,8 +394,8 @@ export default function RentableEntityTreeView({
                   aria-label="Filter Sub Unit"
                 >
                   <option value="ALL">All</option>
-                  <option value="CAN_ADD">Can Add</option>
-                  <option value="CANNOT_ADD">Cannot Add (Beds)</option>
+                  <option value="CAN_ADD">+</option>
+                  <option value="CANNOT_ADD">—</option>
                 </select>
               </th>
 
@@ -589,32 +596,35 @@ export default function RentableEntityTreeView({
                       )}
                     </td>
 
-                    {/* 6. Add Sub Unit (Beds disabled, others clickable) */}
-                    <td className="px-4 py-3 text-center">
+                    {/* 6. Add Sub Unit (Interactive '+' button, disabled for beds) */}
+                    <td className="px-3 py-2.5 text-center">
                       {allowSubUnit && pId && effectivePropId ? (
                         <Link
                           href={subUnitHref}
-                          className="inline-flex items-center gap-1 rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100 hover:text-indigo-900 active:scale-95 whitespace-nowrap"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 shadow-2xs transition-all duration-150 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 hover:scale-110 active:scale-95 cursor-pointer"
                           title={`Add sub-unit under ${row.name}`}
+                          aria-label={`Add sub-unit under ${row.name}`}
                         >
                           <svg
-                            width="10"
-                            height="10"
+                            width="14"
+                            height="14"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
                             strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
                           >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+                            <path d="M12 5v14M5 12h14" />
                           </svg>
-                          <span>+ Sub Unit</span>
                         </Link>
                       ) : (
                         <span
-                          className="inline-flex items-center rounded-xl border border-zinc-200 bg-zinc-50/80 px-2.5 py-1 text-[11px] font-medium text-zinc-400 cursor-not-allowed select-none whitespace-nowrap"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-300 select-none cursor-not-allowed"
                           title={row.type === 'BED' ? 'Beds cannot have sub-units' : undefined}
+                          aria-label="Cannot add sub-unit"
                         >
-                          {row.type === 'BED' ? '🛏 Bed' : '—'}
+                          —
                         </span>
                       )}
                     </td>
