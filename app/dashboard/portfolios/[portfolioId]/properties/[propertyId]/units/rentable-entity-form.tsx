@@ -56,6 +56,7 @@ export default function AddRentableEntityForm({
   propertyAddress,
   properties = [],
   listHref,
+  initialParentId,
 }: {
   portfolioId?: string;
   propertyId: string;
@@ -124,6 +125,7 @@ export default function AddRentableEntityForm({
 
   // Automatically select the default parent entity whenever validParents is available
   useEffect(() => {
+    if (targetParentId && !parentApplied) return;
     if (needsParent && validParents.length > 0) {
       if (parentId && validParents.some((p) => p.id === parentId)) {
         return;
@@ -132,7 +134,7 @@ export default function AddRentableEntityForm({
     } else if (!needsParent) {
       setParentId('');
     }
-  }, [entityType, validParents, needsParent, parentId]);
+  }, [entityType, validParents, needsParent, parentId, targetParentId, parentApplied]);
 
   function handlePropertySwitch(newPropId: string) {
     setSelectedPropertyId(newPropId);

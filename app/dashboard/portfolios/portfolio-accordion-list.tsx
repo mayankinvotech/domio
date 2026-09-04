@@ -806,7 +806,7 @@ function PropertyRow({
         </div>
       </div>
 
-      {/* Full UnitsGrid — same experience as the Manage Units page, inline */}
+      {/* Full UnitsGrid — with Unit Blocks and the sticky-header Hierarchy Table */}
       <div className="mt-4">
         <UnitsGrid
           portfolioId={portfolioId}
