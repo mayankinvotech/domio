@@ -15,6 +15,7 @@ import ViewToggle, { type View } from '@/components/ui/view-toggle';
 import NotesIcon from '@/components/ui/notes-icon';
 import UnitUtilities from '@/components/utilities/unit-utilities';
 import RentableEntityTreeView from './rentable-entity-tree-view';
+import InteractiveFlowchart from './interactive-flowchart';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { ButtonLink } from '@/components/ui/button';
@@ -51,7 +52,7 @@ export default function UnitsGrid({
   propertyName: string;
   units: SubPropertyListItem[];
   rentableEntities?: RentableEntityNode[];
-  defaultTab?: 'blocks' | 'hierarchy';
+  defaultTab?: 'blocks' | 'hierarchy' | 'flowchart';
 }) {
   const [items, setItems] = useState(units);
   const [target, setTarget] = useState<SubPropertyListItem | null>(null);
@@ -60,9 +61,10 @@ export default function UnitsGrid({
   const [view, setView] = useState<View>('card');
   const [filter, setFilter] = useState<StatusFilter>('ALL');
   const [search, setSearch] = useState('');
-  const [displayTab, setDisplayTab] = useState<'blocks' | 'hierarchy'>(() => {
-    if (defaultTab) return defaultTab;
-    return units.length === 0 && rentableEntities.length > 0 ? 'hierarchy' : 'blocks';
+  const [displayTab, setDisplayTab] = useState<'flowchart' | 'hierarchy' | 'blocks'>(() => {
+    if (defaultTab === 'hierarchy') return 'hierarchy';
+    if (defaultTab === 'blocks') return 'blocks';
+    return 'flowchart';
   });
   const [mounted, setMounted] = useState(false);
   const [assignModal, setAssignModal] = useState<{
@@ -288,30 +290,28 @@ export default function UnitsGrid({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setDisplayTab('blocks')}
+            onClick={() => setDisplayTab('flowchart')}
             className={
-              'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ' +
-              (displayTab === 'blocks'
+              'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ' +
+              (displayTab === 'flowchart'
                 ? 'bg-zinc-900 text-white shadow-xs'
                 : 'border border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900')
             }
           >
-            Unit Blocks ({items.length})
+            📊 Flow Chart
           </button>
-          {rentableEntities.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setDisplayTab('hierarchy')}
-              className={
-                'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ' +
-                (displayTab === 'hierarchy'
-                  ? 'bg-zinc-900 text-white shadow-xs'
-                  : 'border border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900')
-              }
-            >
-              Hierarchy Tree ({rentableEntities.length})
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setDisplayTab('hierarchy')}
+            className={
+              'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ' +
+              (displayTab === 'hierarchy'
+                ? 'bg-zinc-900 text-white shadow-xs'
+                : 'border border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900')
+            }
+          >
+            Hierarchy Tree ({rentableEntities.length})
+          </button>
         </div>
 
         {displayTab === 'blocks' && (
@@ -321,7 +321,18 @@ export default function UnitsGrid({
         )}
       </div>
 
-      {displayTab === 'hierarchy' ? (
+      {displayTab === 'flowchart' ? (
+        <div className="mt-4">
+          <InteractiveFlowchart
+            entities={rentableEntities}
+            units={items}
+            propertyName={propertyName}
+            propertyId={propertyId}
+            portfolioId={portfolioId}
+            onAssignTenant={(u) => setAssignModal({ open: true, unit: u })}
+          />
+        </div>
+      ) : displayTab === 'hierarchy' ? (
         <div className="mt-4">
           <RentableEntityTreeView
             entities={rentableEntities}
