@@ -98,6 +98,8 @@ export default function AddRentableEntityForm({
       .catch(() => setLoadingEntities(false));
   }, [selectedPropertyId]);
 
+  const isAddingSubUnit = Boolean(targetParentId || parentId);
+
   // When existing entities load and a targetParentId was passed, auto-select it and set the appropriate child entityType
   useEffect(() => {
     if (!parentApplied && targetParentId && existingEntities.length > 0) {
@@ -117,6 +119,13 @@ export default function AddRentableEntityForm({
       }
     }
   }, [targetParentId, existingEntities, parentApplied]);
+
+  // Ensure PROPERTY is never selected when adding a sub-unit
+  useEffect(() => {
+    if (isAddingSubUnit && entityType === 'PROPERTY') {
+      setEntityType('ROOM');
+    }
+  }, [isAddingSubUnit, entityType]);
 
   const needsParent = VALID_PARENT_TYPES[entityType].length > 0;
   const validParents = flattenTree(existingEntities).filter((e) =>
@@ -231,27 +240,48 @@ export default function AddRentableEntityForm({
 
       {/* Entity Type Selector */}
       <div>
-        <p className={labelClass + ' mb-3'}>What are you renting out?</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className={labelClass}>What are you renting out?</p>
+          {isAddingSubUnit && (
+            <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+              Whole Property option deactivated for sub-units
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
           {ENTITY_TYPES.map((et) => {
             const isSelected = entityType === et.value;
+            const isDeactivated = isAddingSubUnit && et.value === 'PROPERTY';
+
             return (
               <button
                 key={et.value}
                 type="button"
-                onClick={() => setEntityType(et.value)}
+                disabled={isDeactivated}
+                onClick={() => !isDeactivated && setEntityType(et.value)}
+                title={
+                  isDeactivated
+                    ? 'Whole Property cannot be added as a sub-unit inside an existing unit or property. Use "Add Property" instead.'
+                    : undefined
+                }
                 className={
                   'flex flex-col items-center gap-1.5 rounded-2xl border p-3 text-center transition-all duration-150 ' +
-                  (isSelected
-                    ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm ring-2 ring-zinc-900/10'
-                    : 'border-zinc-200 bg-zinc-50/60 text-zinc-700 hover:border-zinc-300 hover:bg-white')
+                  (isDeactivated
+                    ? 'cursor-not-allowed opacity-40 border-zinc-200 bg-zinc-100/90 text-zinc-400 select-none shadow-none'
+                    : isSelected
+                    ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm ring-2 ring-zinc-900/10 cursor-pointer'
+                    : 'border-zinc-200 bg-zinc-50/60 text-zinc-700 hover:border-zinc-300 hover:bg-white cursor-pointer')
                 }
               >
                 <span className="text-xl sm:text-2xl">{et.icon}</span>
                 <span
                   className={
                     'text-xs font-bold ' +
-                    (isSelected ? 'text-white' : 'text-zinc-900')
+                    (isDeactivated
+                      ? 'text-zinc-400 line-through'
+                      : isSelected
+                      ? 'text-white'
+                      : 'text-zinc-900')
                   }
                 >
                   {et.label}
@@ -259,10 +289,14 @@ export default function AddRentableEntityForm({
                 <span
                   className={
                     'text-[10px] leading-tight line-clamp-2 ' +
-                    (isSelected ? 'text-zinc-300' : 'text-zinc-500')
+                    (isDeactivated
+                      ? 'text-zinc-400 font-medium'
+                      : isSelected
+                      ? 'text-zinc-300'
+                      : 'text-zinc-500')
                   }
                 >
-                  {et.description}
+                  {isDeactivated ? 'Deactivated for sub-unit' : et.description}
                 </span>
               </button>
             );

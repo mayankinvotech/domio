@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import type { PropertyWithVacantUnits } from '@/lib/tenancies';
 import { CURRENCIES, DEFAULT_CURRENCY } from '@/lib/currencies';
+import DatePicker from '@/components/ui/date-picker';
 
 const inputClass =
   'rounded-lg border border-[#312D58] bg-[rgba(255,255,255,0.06)] px-3 py-2 text-sm text-white outline-none transition placeholder:text-[#B0B0C8] focus:border-[#5B4FE8] focus:ring-2 focus:ring-[#5B4FE8]/20';
@@ -175,29 +176,31 @@ export default function AssignForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="startDate" className={labelClass}>
-            Lease Start Date
+            Lease Start Date <span className="text-[11px] text-[#B0B0C8] font-normal">(MM/DD/YYYY)</span>
           </label>
-          <input
+          <DatePicker
             id="startDate"
-            type="date"
             required
             value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className={inputClass}
+            onChange={(iso) => setStartDate(iso)}
+            placeholder="MM/DD/YYYY"
+            ariaLabel="Lease Start Date"
+            className="border-[#312D58] bg-[rgba(255,255,255,0.06)] text-white"
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="endDate" className={labelClass}>
-            Lease End Date
+            Lease End Date <span className="text-[11px] text-[#B0B0C8] font-normal">(MM/DD/YYYY)</span>
           </label>
-          <input
+          <DatePicker
             id="endDate"
-            type="date"
             required
             min={startDate}
             value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className={inputClass}
+            onChange={(iso) => setEndDate(iso)}
+            placeholder="MM/DD/YYYY"
+            ariaLabel="Lease End Date"
+            className="border-[#312D58] bg-[rgba(255,255,255,0.06)] text-white"
           />
         </div>
       </div>

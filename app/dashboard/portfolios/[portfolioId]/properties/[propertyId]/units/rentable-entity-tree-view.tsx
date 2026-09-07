@@ -29,7 +29,6 @@ const TYPE_BADGES: Record<string, string> = {
   BED: 'border-amber-200 bg-amber-50 text-amber-800 font-semibold',
 };
 
-type DirectFilter = 'ALL' | 'HAS_DIRECT' | 'ZERO' | 'SORT_HIGH' | 'SORT_LOW';
 type RentFilter = 'ALL' | 'HAS_RENT' | 'ZERO_RENT' | 'HIGH' | 'LOW' | 'SORT_HIGH' | 'SORT_LOW';
 type CollectedFilter = 'ALL' | 'PAID' | 'DUE' | 'ZERO_COLL' | 'SORT_HIGH' | 'SORT_LOW';
 type StatusFilter = 'ALL' | 'OCCUPIED' | 'VACANT' | 'MAINTENANCE';
@@ -42,8 +41,8 @@ export type HierarchyRow = {
   code: string;
   type: string;
   depth: number;
-  rentAmount: number; // Direct rent
-  aggregatedRent: number; // Rollup rent (renamed to Rent)
+  rentAmount: number; // Direct unit rent
+  aggregatedRent: number; // Rollup rent from sub-units
   aggregatedCollection: number; // Collected
   status: string;
   notes?: string | null;
@@ -55,6 +54,11 @@ export type HierarchyRow = {
   isLeaf: boolean;
   children: HierarchyRow[];
 };
+
+// Helper: lowest sub-unit has direct rent, upper units display rollup rent
+function getNodeDisplayedRent(node: HierarchyRow): number {
+  return node.hasChildren ? node.aggregatedRent : node.rentAmount;
+}
 
 export default function RentableEntityTreeView({
   entities,
@@ -73,9 +77,8 @@ export default function RentableEntityTreeView({
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  // Column filters state
+  // Column filters state (Direct filter removed)
   const [unitSearch, setUnitSearch] = useState('');
-  const [directFilter, setDirectFilter] = useState<DirectFilter>('ALL');
   const [rentFilter, setRentFilter] = useState<RentFilter>('ALL');
   const [collectedFilter, setCollectedFilter] = useState<CollectedFilter>('ALL');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
@@ -123,7 +126,6 @@ export default function RentableEntityTreeView({
   // ── Active filter detection ───────────────────────────────────────────────
   const hasActiveFilters =
     unitSearch.trim() !== '' ||
-    directFilter !== 'ALL' ||
     rentFilter !== 'ALL' ||
     collectedFilter !== 'ALL' ||
     statusFilter !== 'ALL' ||
@@ -131,7 +133,6 @@ export default function RentableEntityTreeView({
 
   function resetFilters() {
     setUnitSearch('');
-    setDirectFilter('ALL');
     setRentFilter('ALL');
     setCollectedFilter('ALL');
     setStatusFilter('ALL');
@@ -150,16 +151,15 @@ export default function RentableEntityTreeView({
         return false;
       }
     }
-    if (directFilter === 'HAS_DIRECT' && node.rentAmount <= 0) return false;
-    if (directFilter === 'ZERO' && node.rentAmount > 0) return false;
 
-    if (rentFilter === 'HAS_RENT' && node.aggregatedRent <= 0) return false;
-    if (rentFilter === 'ZERO_RENT' && node.aggregatedRent > 0) return false;
-    if (rentFilter === 'HIGH' && node.aggregatedRent < 10000) return false;
-    if (rentFilter === 'LOW' && node.aggregatedRent >= 10000) return false;
+    const displayedRent = getNodeDisplayedRent(node);
+    if (rentFilter === 'HAS_RENT' && displayedRent <= 0) return false;
+    if (rentFilter === 'ZERO_RENT' && displayedRent > 0) return false;
+    if (rentFilter === 'HIGH' && displayedRent < 10000) return false;
+    if (rentFilter === 'LOW' && displayedRent >= 10000) return false;
 
     if (collectedFilter === 'PAID' && node.aggregatedCollection <= 0) return false;
-    if (collectedFilter === 'DUE' && node.aggregatedCollection >= node.aggregatedRent) return false;
+    if (collectedFilter === 'DUE' && node.aggregatedCollection >= displayedRent) return false;
     if (collectedFilter === 'ZERO_COLL' && node.aggregatedCollection > 0) return false;
 
     if (statusFilter !== 'ALL' && node.isLeaf) {
@@ -196,7 +196,7 @@ export default function RentableEntityTreeView({
       .map(filterBranch)
       .filter((n): n is HierarchyRow => n !== null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [treeData, hasActiveFilters, unitSearch, directFilter, rentFilter, collectedFilter, statusFilter, subUnitFilter]);
+  }, [treeData, hasActiveFilters, unitSearch, rentFilter, collectedFilter, statusFilter, subUnitFilter]);
 
   // ── Flatten tree to rows respecting collapse state and sorting ────────────
   const visibleRows = useMemo<HierarchyRow[]>(() => {
@@ -210,15 +210,13 @@ export default function RentableEntityTreeView({
     filteredTrees.forEach(traverse);
 
     // Flat sort when requested
-    if (directFilter === 'SORT_HIGH') return [...rows].sort((a, b) => b.rentAmount - a.rentAmount);
-    if (directFilter === 'SORT_LOW') return [...rows].sort((a, b) => a.rentAmount - b.rentAmount);
-    if (rentFilter === 'SORT_HIGH') return [...rows].sort((a, b) => b.aggregatedRent - a.aggregatedRent);
-    if (rentFilter === 'SORT_LOW') return [...rows].sort((a, b) => a.aggregatedRent - b.aggregatedRent);
+    if (rentFilter === 'SORT_HIGH') return [...rows].sort((a, b) => getNodeDisplayedRent(b) - getNodeDisplayedRent(a));
+    if (rentFilter === 'SORT_LOW') return [...rows].sort((a, b) => getNodeDisplayedRent(a) - getNodeDisplayedRent(b));
     if (collectedFilter === 'SORT_HIGH') return [...rows].sort((a, b) => b.aggregatedCollection - a.aggregatedCollection);
     if (collectedFilter === 'SORT_LOW') return [...rows].sort((a, b) => a.aggregatedCollection - b.aggregatedCollection);
 
     return rows;
-  }, [filteredTrees, collapsed, directFilter, rentFilter, collectedFilter]);
+  }, [filteredTrees, collapsed, rentFilter, collectedFilter]);
 
   if (!entities || entities.length === 0) {
     return (
@@ -277,7 +275,6 @@ export default function RentableEntityTreeView({
             {/* Row 1 — Column Labels */}
             <tr className="bg-zinc-50/95 text-xs font-bold uppercase tracking-wider text-zinc-600 border-b border-zinc-200 shadow-2xs">
               <th className="px-5 py-3 min-w-[260px]">Unit</th>
-              <th className="px-4 py-3 text-right min-w-[110px]">Direct</th>
               <th className="px-4 py-3 text-right min-w-[120px]">Rent</th>
               <th className="px-4 py-3 text-right min-w-[110px]">Collected</th>
               <th className="px-4 py-3 text-center min-w-[140px]">Status</th>
@@ -319,23 +316,7 @@ export default function RentableEntityTreeView({
                 </div>
               </th>
 
-              {/* 2. Direct filter */}
-              <th className="px-4 py-2 font-normal text-right">
-                <select
-                  value={directFilter}
-                  onChange={(e) => setDirectFilter(e.target.value as DirectFilter)}
-                  className={selectCls}
-                  aria-label="Filter Direct"
-                >
-                  <option value="ALL">All</option>
-                  <option value="HAS_DIRECT">{'> ₹0'}</option>
-                  <option value="ZERO">₹0 or —</option>
-                  <option value="SORT_HIGH">Highest → Lowest</option>
-                  <option value="SORT_LOW">Lowest → Highest</option>
-                </select>
-              </th>
-
-              {/* 3. Rent filter (Rollup renamed to Rent) */}
+              {/* 2. Rent filter */}
               <th className="px-4 py-2 font-normal text-right">
                 <select
                   value={rentFilter}
@@ -353,7 +334,7 @@ export default function RentableEntityTreeView({
                 </select>
               </th>
 
-              {/* 4. Collected filter */}
+              {/* 3. Collected filter */}
               <th className="px-4 py-2 font-normal text-right">
                 <select
                   value={collectedFilter}
@@ -418,7 +399,7 @@ export default function RentableEntityTreeView({
           <tbody className="divide-y divide-zinc-100 bg-white">
             {visibleRows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-5 py-12 text-center">
+                <td colSpan={6} className="px-5 py-12 text-center">
                   <div className="flex flex-col items-center gap-2 text-zinc-400">
                     <svg
                       width="28"
@@ -535,21 +516,25 @@ export default function RentableEntityTreeView({
                       </div>
                     </td>
 
-                    {/* 2. Direct rent */}
-                    <td className="px-4 py-3 text-right font-mono text-sm text-zinc-600">
-                      {row.rentAmount > 0 ? (
-                        formatRent(row.rentAmount)
-                      ) : row.type === 'PROPERTY' ? (
-                        formatRent(0)
-                      ) : (
-                        <span className="text-zinc-400">—</span>
-                      )}
-                    </td>
-
-                    {/* 3. Rent (Rollup renamed to Rent) */}
-                    <td className="px-4 py-3 text-right font-mono text-sm font-bold text-zinc-900">
-                      {row.aggregatedRent > 0 ? (
-                        formatRent(row.aggregatedRent)
+                    {/* Rent column: Roll-up rent on upper units, rent on lowest sub-units */}
+                    <td className="px-4 py-3 text-right font-mono text-sm">
+                      {row.hasChildren ? (
+                        row.aggregatedRent > 0 ? (
+                          <div className="flex flex-col items-end">
+                            <span className="font-bold text-zinc-900">
+                              {formatRent(row.aggregatedRent)}
+                            </span>
+                            <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.2 rounded mt-0.5 tracking-tight">
+                              roll-up
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-zinc-400 font-normal">—</span>
+                        )
+                      ) : row.rentAmount > 0 ? (
+                        <span className="font-bold text-zinc-900">
+                          {formatRent(row.rentAmount)}
+                        </span>
                       ) : (
                         <span className="text-zinc-400 font-normal">—</span>
                       )}

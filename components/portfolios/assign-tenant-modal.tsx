@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import DatePicker from '@/components/ui/date-picker';
 
 type TenantOption = {
   id: string;
@@ -736,25 +737,31 @@ export default function AssignTenantModal({
             </p>
 
             {/* Dates */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className={labelClass}>Start Date *</label>
-                <input
-                  type="date"
+                <label className={labelClass}>
+                  Start Date *{' '}
+                  <span className="text-[10px] font-normal text-zinc-400">(MM/DD/YYYY)</span>
+                </label>
+                <DatePicker
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className={inputClass}
+                  onChange={(iso) => setStartDate(iso)}
                   required
+                  placeholder="MM/DD/YYYY"
+                  ariaLabel="Start Date"
                 />
               </div>
               <div>
-                <label className={labelClass}>End Date *</label>
-                <input
-                  type="date"
+                <label className={labelClass}>
+                  End Date *{' '}
+                  <span className="text-[10px] font-normal text-zinc-400">(MM/DD/YYYY)</span>
+                </label>
+                <DatePicker
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className={inputClass}
+                  onChange={(iso) => setEndDate(iso)}
                   required
+                  placeholder="MM/DD/YYYY"
+                  ariaLabel="End Date"
                 />
               </div>
             </div>

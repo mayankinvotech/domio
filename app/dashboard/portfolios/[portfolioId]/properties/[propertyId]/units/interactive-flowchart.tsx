@@ -413,15 +413,15 @@ export default function InteractiveFlowchart({
             <div className="mt-4 space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-zinc-50 p-3">
                 <div>
-                  <span className="text-zinc-500 font-medium">Direct Rent:</span>
+                  <span className="text-zinc-500 font-medium">
+                    {selectedNode.children && selectedNode.children.length > 0 ? 'Roll-up Rent:' : 'Rent:'}
+                  </span>
                   <p className="font-mono font-bold text-zinc-900 text-sm">
-                    {formatRent(selectedNode.rentAmount)}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-zinc-500 font-medium">Total Rollup Rent:</span>
-                  <p className="font-mono font-bold text-zinc-900 text-sm">
-                    {formatRent(selectedNode.aggregatedRent)}
+                    {formatRent(
+                      selectedNode.children && selectedNode.children.length > 0
+                        ? selectedNode.aggregatedRent
+                        : selectedNode.rentAmount
+                    )}
                   </p>
                 </div>
                 <div>
@@ -602,15 +602,17 @@ function FlowNode({
           {/* Metrics row */}
           <div className="mt-2.5 grid grid-cols-2 gap-1 rounded-xl bg-zinc-50/80 p-2 text-[10px]">
             <div>
-              <span className="text-zinc-400 font-medium">Direct:</span>
-              <p className="font-mono font-bold text-zinc-800">
-                {formatRent(node.rentAmount)}
+              <span className="text-zinc-400 font-medium">
+                {hasChildren ? 'Roll-up Rent:' : 'Rent:'}
+              </span>
+              <p className="font-mono font-bold text-zinc-900">
+                {formatRent(hasChildren ? node.aggregatedRent : node.rentAmount)}
               </p>
             </div>
             <div className="text-right">
-              <span className="text-zinc-400 font-medium">Rollup Rent:</span>
-              <p className="font-mono font-bold text-zinc-900">
-                {formatRent(node.aggregatedRent)}
+              <span className="text-zinc-400 font-medium">Collected:</span>
+              <p className="font-mono font-bold text-emerald-700">
+                {formatRent(node.aggregatedCollection)}
               </p>
             </div>
           </div>
