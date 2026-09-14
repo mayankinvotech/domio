@@ -2,12 +2,15 @@
 
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { RentableEntityType, SubPropertyStatus } from '@prisma/client';
 import type { RentableEntityNode } from '@/lib/rentable-entities';
 import { RENTABLE_ENTITY_TYPE_LABELS, canHaveChildren } from '@/lib/rentable-entities';
 import { formatRent, subPropertyStatusBadgeClass, subPropertyStatusLabel } from '@/lib/sub-property-types';
 import type { VacantUnit } from '@/components/portfolios/assign-tenant-modal';
 import type { SubPropertyListItem } from '@/lib/sub-properties';
+import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 
 const TYPE_ICONS: Record<string, string> = {
   PROPERTY: '🏢',
@@ -101,11 +104,57 @@ export default function InteractiveFlowchart({
   portfolioId?: string;
   onAssignTenant?: (unit: VacantUnit) => void;
 }) {
+  const router = useRouter();
   const [zoom, setZoom] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'OCCUPIED' | 'VACANT' | 'MAINTENANCE'>('ALL');
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<RentableEntityNode | null>(null);
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<RentableEntityNode | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useScrollLock(!!deleteTarget);
+  const trapRef = useFocusTrap<HTMLDivElement>(!!deleteTarget);
+
+  function closeDeleteConfirm() {
+    if (deleting) return;
+    setDeleteTarget(null);
+    setDeleteError(null);
+  }
+
+  async function confirmDeleteEntity() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/rentable-entities/${deleteTarget.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setDeleteTarget(null);
+        setSelectedNode(null);
+        router.refresh();
+      } else {
+        const data = await res.json().catch(() => null);
+        setDeleteError(data?.error ?? 'Failed to delete. Please try again.');
+      }
+    } catch {
+      setDeleteError('Failed to delete. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function countDescendants(node: RentableEntityNode): number {
+    let count = 0;
+    for (const child of node.children ?? []) {
+      count += 1 + countDescendants(child);
+    }
+    return count;
+  }
 
   // Pan / drag state
   const containerRef = useRef<HTMLDivElement>(null);
@@ -409,6 +458,7 @@ export default function InteractiveFlowchart({
                 collapsedNodes={collapsedNodes}
                 onToggleCollapse={toggleCollapse}
                 onSelectNode={(n) => setSelectedNode(n)}
+                onDeleteNode={(n) => { setDeleteError(null); setDeleteTarget(n); }}
                 onAssignTenant={onAssignTenant}
                 selectedNodeId={selectedNode?.id}
                 nodeMatches={nodeMatches}
@@ -569,10 +619,85 @@ export default function InteractiveFlowchart({
               )}
               <button
                 type="button"
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleteTarget(selectedNode);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-600 hover:text-white"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                </svg>
+                Delete
+              </button>
+              <button
+                type="button"
                 onClick={() => setSelectedNode(null)}
                 className="rounded-xl border border-zinc-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-50"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={closeDeleteConfirm}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
+        >
+          <div
+            ref={trapRef}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600 mb-3">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold tracking-tight text-zinc-900">
+              Delete {RENTABLE_ENTITY_TYPE_LABELS[deleteTarget.type as keyof typeof RENTABLE_ENTITY_TYPE_LABELS] || 'unit'}
+            </h2>
+            <p className="mt-1.5 text-sm text-zinc-600">
+              Are you sure you want to delete{' '}
+              <strong className="text-zinc-900">&quot;{deleteTarget.name}&quot;</strong>
+              {deleteTarget.code ? ` (${deleteTarget.code})` : ''}?
+              {countDescendants(deleteTarget) > 0
+                ? ` This will also permanently delete its ${countDescendants(deleteTarget)} sub-unit${
+                    countDescendants(deleteTarget) !== 1 ? 's' : ''
+                  } and any tenancy history.`
+                : ' This will permanently remove this unit and any tenancy history.'}
+            </p>
+
+            {deleteError && (
+              <p
+                role="alert"
+                className="mt-3 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
+              >
+                {deleteError}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                disabled={deleting}
+                className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteEntity}
+                disabled={deleting}
+                className="inline-flex items-center gap-1.5 rounded-full bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-rose-700 disabled:opacity-60"
+              >
+                {deleting ? 'Deleting…' : 'Confirm Delete'}
               </button>
             </div>
           </div>
@@ -590,6 +715,7 @@ function FlowNode({
   collapsedNodes,
   onToggleCollapse,
   onSelectNode,
+  onDeleteNode,
   onAssignTenant,
   selectedNodeId,
   nodeMatches,
@@ -602,6 +728,7 @@ function FlowNode({
   collapsedNodes: Set<string>;
   onToggleCollapse: (id: string, e?: React.MouseEvent) => void;
   onSelectNode: (node: RentableEntityNode) => void;
+  onDeleteNode: (node: RentableEntityNode) => void;
   onAssignTenant?: (unit: VacantUnit) => void;
   selectedNodeId?: string;
   nodeMatches: (node: RentableEntityNode) => boolean;
@@ -725,6 +852,7 @@ function FlowNode({
 
           {/* Quick Actions Bar */}
           <div className="mt-2.5 flex items-center justify-between border-t border-zinc-100 pt-2 text-xs">
+            {/* Left: add sub-unit OR terminal label */}
             {allowSubUnit ? (
               <Link
                 href={subUnitHref}
@@ -740,6 +868,7 @@ function FlowNode({
               <span className="text-[10px] text-zinc-300 font-mono select-none">— terminal</span>
             )}
 
+            {/* Center: collapse/assign */}
             {hasChildren ? (
               <button
                 type="button"
@@ -769,6 +898,22 @@ function FlowNode({
             ) : (
               <span className="text-[10px] text-zinc-400 font-mono">Leaf Unit</span>
             )}
+
+            {/* Right: delete icon */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteNode(node);
+              }}
+              title={`Delete ${node.name}`}
+              aria-label={`Delete ${node.name}`}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-500 shadow-2xs transition-all duration-150 hover:bg-rose-600 hover:text-white hover:border-rose-600 hover:scale-110 active:scale-95"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -820,6 +965,7 @@ function FlowNode({
                     collapsedNodes={collapsedNodes}
                     onToggleCollapse={onToggleCollapse}
                     onSelectNode={onSelectNode}
+                    onDeleteNode={onDeleteNode}
                     onAssignTenant={onAssignTenant}
                     selectedNodeId={selectedNodeId}
                     nodeMatches={nodeMatches}
