@@ -128,13 +128,25 @@ export default function UnitsGrid({
   // Stats calculation
   const stats = useMemo(() => {
     const hasHierarchy = rentableEntities && rentableEntities.length > 0;
-    
-    // Count leaf nodes or all nodes in hierarchy
+
+    // Count leaf sub-units only. A Property/Floor/Room that has sub-units
+    // is a structural container, not a rentable unit of its own — it must
+    // never be counted here, whether as a unit, occupied, vacant, or in
+    // maintenance. Walking the hierarchy once keeps every number (total,
+    // occupied, vacant, maintenance) scoped to that same leaf-only set,
+    // instead of mixing a leaf-only total with counts pulled from the flat
+    // SubProperty list (which also contains a row for every container).
     let hierarchyLeafCount = 0;
+    let hierarchyOccupied = 0;
+    let hierarchyVacant = 0;
+    let hierarchyMaintenance = 0;
     function countLeaves(nodes: RentableEntityNode[]) {
       for (const n of nodes) {
         if (!n.children || n.children.length === 0) {
           hierarchyLeafCount++;
+          if (n.status === 'MAINTENANCE') hierarchyMaintenance++;
+          else if (n.status === 'OCCUPIED' || n.activeLease) hierarchyOccupied++;
+          else hierarchyVacant++;
         } else {
           countLeaves(n.children);
         }
@@ -145,14 +157,20 @@ export default function UnitsGrid({
     }
 
     const totalUnits = hasHierarchy ? hierarchyLeafCount : items.length;
-    const occupiedCount = items.filter((u) => u.status === 'OCCUPIED').length;
-    const vacantCount = items.filter((u) => u.status === 'VACANT').length;
-    const maintenanceCount = items.filter((u) => u.status === 'MAINTENANCE').length;
-    
+    const occupiedCount = hasHierarchy
+      ? hierarchyOccupied
+      : items.filter((u) => u.status === 'OCCUPIED').length;
+    const vacantCount = hasHierarchy
+      ? hierarchyVacant
+      : items.filter((u) => u.status === 'VACANT').length;
+    const maintenanceCount = hasHierarchy
+      ? hierarchyMaintenance
+      : items.filter((u) => u.status === 'MAINTENANCE').length;
+
     const totalRent = hasHierarchy
       ? rentableEntities.reduce((acc, r) => acc + (r.aggregatedRent || 0), 0)
       : items.reduce((acc, u) => acc + (u.rentAmount || 0), 0);
-      
+
     const occupancyRate = totalUnits > 0 ? Math.round((occupiedCount / totalUnits) * 100) : 0;
 
     return {

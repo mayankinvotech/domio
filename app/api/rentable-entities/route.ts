@@ -5,6 +5,8 @@ import { resolveDataScope } from '@/lib/manager-access';
 import {
   parseRentableEntityInput,
   listRentableEntitiesForProperty,
+  VALID_PARENT_TYPES,
+  RENTABLE_ENTITY_TYPE_LABELS,
 } from '@/lib/rentable-entities';
 import { generateRentableEntityId, generateUnitId } from '@/lib/display-ids';
 
@@ -94,6 +96,30 @@ export async function POST(request: Request) {
   const parsed = parseRentableEntityInput(body);
   if ('error' in parsed) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+
+  // Enforce the hierarchy rules server-side too (e.g. a Bed can never be
+  // added under an Office) — the frontend only filters the parent picker,
+  // it doesn't stop a direct/older request from slipping an invalid pair
+  // through, and clicking "+" on a node passes its id straight through.
+  if (parsed.data.parentId) {
+    const parentEntity = await prisma.rentableEntity.findFirst({
+      where: { id: parsed.data.parentId, ownerId: ds.ownerId, propertyId },
+    });
+    if (!parentEntity) {
+      return NextResponse.json(
+        { error: 'Parent entity not found or unauthorized' },
+        { status: 404 },
+      );
+    }
+    if (!VALID_PARENT_TYPES[parsed.data.type].includes(parentEntity.type)) {
+      return NextResponse.json(
+        {
+          error: `A ${RENTABLE_ENTITY_TYPE_LABELS[parsed.data.type]} cannot be added under a ${RENTABLE_ENTITY_TYPE_LABELS[parentEntity.type]}.`,
+        },
+        { status: 400 },
+      );
+    }
   }
 
   const displayId = await generateRentableEntityId();

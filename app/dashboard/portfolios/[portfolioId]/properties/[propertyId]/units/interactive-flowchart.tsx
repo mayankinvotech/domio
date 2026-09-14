@@ -4,7 +4,7 @@ import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import type { RentableEntityType, SubPropertyStatus } from '@prisma/client';
 import type { RentableEntityNode } from '@/lib/rentable-entities';
-import { RENTABLE_ENTITY_TYPE_LABELS } from '@/lib/rentable-entities';
+import { RENTABLE_ENTITY_TYPE_LABELS, canHaveChildren } from '@/lib/rentable-entities';
 import { formatRent, subPropertyStatusBadgeClass, subPropertyStatusLabel } from '@/lib/sub-property-types';
 import type { VacantUnit } from '@/components/portfolios/assign-tenant-modal';
 import type { SubPropertyListItem } from '@/lib/sub-properties';
@@ -49,6 +49,42 @@ const TYPE_COLORS: Record<string, { border: string; bg: string; text: string; he
     headerBg: 'bg-gradient-to-r from-amber-500 to-orange-500 text-white',
   },
 };
+
+// ── Sub-unit status rollup ───────────────────────────────────────────────
+// A node that has children never carries a meaningful status of its own —
+// only leaf nodes (no sub-units) are ever actually leased, vacated, or put
+// into maintenance. For every node WITH children we instead show how many
+// of its leaf descendants fall into each bucket.
+type StatusCounts = { vacant: number; occupied: number; maintenance: number };
+
+function computeStatusCounts(
+  node: RentableEntityNode,
+  map: Map<string, StatusCounts>,
+): StatusCounts {
+  const hasChildren = node.children && node.children.length > 0;
+  let counts: StatusCounts;
+
+  if (!hasChildren) {
+    if (node.status === 'MAINTENANCE') {
+      counts = { vacant: 0, occupied: 0, maintenance: 1 };
+    } else if (node.status === 'OCCUPIED' || node.activeLease) {
+      counts = { vacant: 0, occupied: 1, maintenance: 0 };
+    } else {
+      counts = { vacant: 1, occupied: 0, maintenance: 0 };
+    }
+  } else {
+    counts = { vacant: 0, occupied: 0, maintenance: 0 };
+    for (const child of node.children) {
+      const childCounts = computeStatusCounts(child, map);
+      counts.vacant += childCounts.vacant;
+      counts.occupied += childCounts.occupied;
+      counts.maintenance += childCounts.maintenance;
+    }
+  }
+
+  map.set(node.id, counts);
+  return counts;
+}
 
 export default function InteractiveFlowchart({
   entities = [],
@@ -129,6 +165,15 @@ export default function InteractiveFlowchart({
     }
     return [];
   }, [entities, units, propertyId, propertyName]);
+
+  // Precompute leaf-status counts once per tree so every node can show its
+  // own vacant/occupied/maintenance breakdown without re-walking the tree
+  // on every render.
+  const statusCountsMap = useMemo(() => {
+    const map = new Map<string, StatusCounts>();
+    treeRoots.forEach((root) => computeStatusCounts(root, map));
+    return map;
+  }, [treeRoots]);
 
   const toggleCollapse = useCallback((id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -367,6 +412,7 @@ export default function InteractiveFlowchart({
                 onAssignTenant={onAssignTenant}
                 selectedNodeId={selectedNode?.id}
                 nodeMatches={nodeMatches}
+                statusCounts={statusCountsMap}
                 isRoot
               />
             ))}
@@ -432,15 +478,38 @@ export default function InteractiveFlowchart({
                 </div>
                 <div>
                   <span className="text-zinc-500 font-medium">Status:</span>
-                  <p>
-                    <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${subPropertyStatusBadgeClass(
-                        selectedNode.status
-                      )}`}
-                    >
-                      {subPropertyStatusLabel(selectedNode.status)}
-                    </span>
-                  </p>
+                  {selectedNode.children && selectedNode.children.length > 0 ? (
+                    (() => {
+                      const c = statusCountsMap.get(selectedNode.id) ?? {
+                        vacant: 0,
+                        occupied: 0,
+                        maintenance: 0,
+                      };
+                      return (
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                            🟢 {c.occupied}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                            🟡 {c.vacant}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
+                            🔴 {c.maintenance}
+                          </span>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <p>
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${subPropertyStatusBadgeClass(
+                          selectedNode.status
+                        )}`}
+                      >
+                        {subPropertyStatusLabel(selectedNode.status)}
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -472,7 +541,7 @@ export default function InteractiveFlowchart({
 
             {/* Actions */}
             <div className="mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-zinc-100 pt-4">
-              {selectedNode.type !== 'BED' && portfolioId && propertyId && (
+              {canHaveChildren(selectedNode.type) && portfolioId && propertyId && (
                 <Link
                   href={`/dashboard/portfolios/${portfolioId}/properties/${propertyId}/units/new?parentId=${selectedNode.id}`}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
@@ -524,6 +593,7 @@ function FlowNode({
   onAssignTenant,
   selectedNodeId,
   nodeMatches,
+  statusCounts,
   isRoot = false,
 }: {
   node: RentableEntityNode;
@@ -535,6 +605,7 @@ function FlowNode({
   onAssignTenant?: (unit: VacantUnit) => void;
   selectedNodeId?: string;
   nodeMatches: (node: RentableEntityNode) => boolean;
+  statusCounts: Map<string, StatusCounts>;
   isRoot?: boolean;
 }) {
   const isCollapsed = collapsedNodes.has(node.id);
@@ -544,7 +615,8 @@ function FlowNode({
 
   const colors = TYPE_COLORS[node.type] || TYPE_COLORS.ROOM;
   const isOccupied = node.status === 'OCCUPIED' || !!node.activeLease;
-  const allowSubUnit = node.type !== 'BED';
+  const allowSubUnit = canHaveChildren(node.type);
+  const counts = statusCounts.get(node.id) ?? { vacant: 0, occupied: 0, maintenance: 0 };
 
   const subUnitHref = portfolioId && propertyId
     ? `/dashboard/portfolios/${portfolioId}/properties/${propertyId}/units/new?parentId=${node.id}`
@@ -561,6 +633,38 @@ function FlowNode({
           !isMatch ? 'opacity-40 grayscale-30' : 'opacity-100'
         }`}
       >
+        {/* Sub-unit status rollup — overlaid on the box for any node with
+            children, since such a node never carries a direct status of
+            its own. */}
+        {hasChildren && (counts.occupied > 0 || counts.vacant > 0 || counts.maintenance > 0) && (
+          <div className="absolute -top-2.5 right-2 z-10 flex items-center gap-1">
+            {counts.occupied > 0 && (
+              <span
+                title={`${counts.occupied} occupied`}
+                className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-emerald-500 px-1 text-[9px] font-bold text-white shadow-sm"
+              >
+                {counts.occupied}
+              </span>
+            )}
+            {counts.vacant > 0 && (
+              <span
+                title={`${counts.vacant} vacant`}
+                className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-amber-400 px-1 text-[9px] font-bold text-white shadow-sm"
+              >
+                {counts.vacant}
+              </span>
+            )}
+            {counts.maintenance > 0 && (
+              <span
+                title={`${counts.maintenance} in maintenance`}
+                className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[9px] font-bold text-white shadow-sm"
+              >
+                {counts.maintenance}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Card Header Bar */}
         <div className={`flex items-center justify-between px-3 py-1.5 rounded-t-2xl text-xs font-semibold ${colors.headerBg}`}>
           <div className="flex items-center gap-1.5 truncate">
@@ -582,13 +686,15 @@ function FlowNode({
             <h4 className="font-bold text-zinc-900 text-sm truncate" title={node.name}>
               {node.name}
             </h4>
-            <span
-              className={`shrink-0 inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${subPropertyStatusBadgeClass(
-                node.status
-              )}`}
-            >
-              {subPropertyStatusLabel(node.status)}
-            </span>
+            {!hasChildren && (
+              <span
+                className={`shrink-0 inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${subPropertyStatusBadgeClass(
+                  node.status
+                )}`}
+              >
+                {subPropertyStatusLabel(node.status)}
+              </span>
+            )}
           </div>
 
           {/* Occupied tenant banner */}
@@ -631,7 +737,7 @@ function FlowNode({
                 </svg>
               </Link>
             ) : (
-              <span className="text-[10px] text-zinc-300 font-mono select-none">🛏 terminal</span>
+              <span className="text-[10px] text-zinc-300 font-mono select-none">— terminal</span>
             )}
 
             {hasChildren ? (
@@ -673,38 +779,55 @@ function FlowNode({
           {/* Vertical stem line coming down from parent card */}
           <div className="h-6 w-0.5 bg-zinc-300" />
 
-          {/* Children container with horizontal crossbar */}
-          <div className="flex items-start justify-center gap-6 relative">
-            {/* Horizontal connecting crossbar across all children */}
-            {node.children.length > 1 && (
-              <div
-                className="absolute top-0 h-0.5 bg-zinc-300"
-                style={{
-                  left: `calc(${100 / (node.children.length * 2)}%)`,
-                  right: `calc(${100 / (node.children.length * 2)}%)`,
-                }}
-              />
-            )}
+          {/* Children row — each child owns the half of the crossbar
+              centered on itself (via matching left/right padding), so the
+              line always meets its own drop-line exactly no matter how
+              many children there are or how wide their cards get. The old
+              approach positioned one shared crossbar using percentage math
+              across the whole row, which only lined up by coincidence and
+              drifted apart as the child count changed — that's why lines
+              looked disconnected. */}
+          <div className="flex items-start justify-center">
+            {node.children.map((child, index) => {
+              const isFirst = index === 0;
+              const isLast = index === node.children.length - 1;
+              return (
+                <div key={child.id} className="relative flex flex-col items-center px-3">
+                  {node.children.length > 1 && (
+                    <>
+                      {/* Left half of the crossbar — hidden for the first child */}
+                      <div
+                        className={`absolute top-0 left-0 h-0.5 w-1/2 bg-zinc-300 ${
+                          isFirst ? 'invisible' : ''
+                        }`}
+                      />
+                      {/* Right half of the crossbar — hidden for the last child */}
+                      <div
+                        className={`absolute top-0 right-0 h-0.5 w-1/2 bg-zinc-300 ${
+                          isLast ? 'invisible' : ''
+                        }`}
+                      />
+                    </>
+                  )}
 
-            {/* Child branches */}
-            {node.children.map((child) => (
-              <div key={child.id} className="flex flex-col items-center">
-                {/* Vertical line dropping down to child node card */}
-                <div className="h-6 w-0.5 bg-zinc-300" />
+                  {/* Vertical line dropping down to this child's node card */}
+                  <div className="h-6 w-0.5 bg-zinc-300" />
 
-                <FlowNode
-                  node={child}
-                  portfolioId={portfolioId}
-                  propertyId={propertyId}
-                  collapsedNodes={collapsedNodes}
-                  onToggleCollapse={onToggleCollapse}
-                  onSelectNode={onSelectNode}
-                  onAssignTenant={onAssignTenant}
-                  selectedNodeId={selectedNodeId}
-                  nodeMatches={nodeMatches}
-                />
-              </div>
-            ))}
+                  <FlowNode
+                    node={child}
+                    portfolioId={portfolioId}
+                    propertyId={propertyId}
+                    collapsedNodes={collapsedNodes}
+                    onToggleCollapse={onToggleCollapse}
+                    onSelectNode={onSelectNode}
+                    onAssignTenant={onAssignTenant}
+                    selectedNodeId={selectedNodeId}
+                    nodeMatches={nodeMatches}
+                    statusCounts={statusCounts}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type { RentableEntityNode } from '@/lib/rentable-entities';
-import { RENTABLE_ENTITY_TYPE_LABELS } from '@/lib/rentable-entities';
+import { RENTABLE_ENTITY_TYPE_LABELS, canHaveChildren } from '@/lib/rentable-entities';
 import {
   formatRent,
   subPropertyStatusBadgeClass,
@@ -133,9 +133,9 @@ export default function RentableEntityTreeView({
     });
   }
 
-  // Beds are terminal — cannot have sub-units
+  // Beds and Offices are terminal — cannot have sub-units
   function canAddSubUnit(row: HierarchyRow): boolean {
-    return row.type !== 'BED';
+    return canHaveChildren(row.type as RentableEntityNode['type']);
   }
 
   // Count all nested sub-units under a row (for delete confirmation copy)

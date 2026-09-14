@@ -100,6 +100,17 @@ export default function AddRentableEntityForm({
 
   const isAddingSubUnit = Boolean(targetParentId || parentId);
 
+  // When adding a sub-unit under a specific parent, only the child types
+  // that parent can legally hold are even selectable — everything else
+  // disappears from the picker instead of being greyed out, so there is no
+  // way to pick (or land on, via the parent dropdown) an invalid pairing.
+  const targetParentNode = targetParentId ? findNode(existingEntities, targetParentId) : null;
+  const targetParentType = targetParentNode?.type;
+  const visibleEntityTypes =
+    isAddingSubUnit && targetParentType
+      ? ENTITY_TYPES.filter((et) => VALID_PARENT_TYPES[et.value].includes(targetParentType))
+      : ENTITY_TYPES;
+
   // When existing entities load and a targetParentId was passed, auto-select it and set the appropriate child entityType
   useEffect(() => {
     if (!parentApplied && targetParentId && existingEntities.length > 0) {
@@ -111,9 +122,10 @@ export default function AddRentableEntityForm({
           setEntityType('ROOM');
         } else if (parentNode.type === 'ROOM') {
           setEntityType('BED');
-        } else if (parentNode.type === 'OFFICE') {
-          setEntityType('BED');
         }
+        // Note: OFFICE is intentionally excluded — an Office is always
+        // terminal and can never receive a Bed (or anything else) as a
+        // sub-unit, so there is no valid entityType to auto-select here.
         setParentId(targetParentId);
         setParentApplied(true);
       }
@@ -242,66 +254,47 @@ export default function AddRentableEntityForm({
       <div>
         <div className="flex items-center justify-between mb-3">
           <p className={labelClass}>What are you renting out?</p>
-          {isAddingSubUnit && (
+          {isAddingSubUnit && targetParentType && (
             <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
-              Whole Property option deactivated for sub-units
+              Only types you can add under a {RENTABLE_ENTITY_TYPE_LABELS[targetParentType]} are shown
             </span>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
-          {ENTITY_TYPES.map((et) => {
-            const isSelected = entityType === et.value;
-            const isDeactivated = isAddingSubUnit && et.value === 'PROPERTY';
+        {visibleEntityTypes.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-4 text-center text-xs font-medium text-zinc-500">
+            {targetParentType
+              ? `A ${RENTABLE_ENTITY_TYPE_LABELS[targetParentType]} cannot hold any sub-units.`
+              : 'No sub-unit types are available here.'}
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+            {visibleEntityTypes.map((et) => {
+              const isSelected = entityType === et.value;
 
-            return (
-              <button
-                key={et.value}
-                type="button"
-                disabled={isDeactivated}
-                onClick={() => !isDeactivated && setEntityType(et.value)}
-                title={
-                  isDeactivated
-                    ? 'Whole Property cannot be added as a sub-unit inside an existing unit or property. Use "Add Property" instead.'
-                    : undefined
-                }
-                className={
-                  'flex flex-col items-center gap-1.5 rounded-2xl border p-3 text-center transition-all duration-150 ' +
-                  (isDeactivated
-                    ? 'cursor-not-allowed opacity-40 border-zinc-200 bg-zinc-100/90 text-zinc-400 select-none shadow-none'
-                    : isSelected
-                    ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm ring-2 ring-zinc-900/10 cursor-pointer'
-                    : 'border-zinc-200 bg-zinc-50/60 text-zinc-700 hover:border-zinc-300 hover:bg-white cursor-pointer')
-                }
-              >
-                <span className="text-xl sm:text-2xl">{et.icon}</span>
-                <span
+              return (
+                <button
+                  key={et.value}
+                  type="button"
+                  onClick={() => setEntityType(et.value)}
                   className={
-                    'text-xs font-bold ' +
-                    (isDeactivated
-                      ? 'text-zinc-400 line-through'
-                      : isSelected
-                      ? 'text-white'
-                      : 'text-zinc-900')
+                    'flex flex-col items-center gap-1.5 rounded-2xl border p-3 text-center transition-all duration-150 ' +
+                    (isSelected
+                      ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm ring-2 ring-zinc-900/10 cursor-pointer'
+                      : 'border-zinc-200 bg-zinc-50/60 text-zinc-700 hover:border-zinc-300 hover:bg-white cursor-pointer')
                   }
                 >
-                  {et.label}
-                </span>
-                <span
-                  className={
-                    'text-[10px] leading-tight line-clamp-2 ' +
-                    (isDeactivated
-                      ? 'text-zinc-400 font-medium'
-                      : isSelected
-                      ? 'text-zinc-300'
-                      : 'text-zinc-500')
-                  }
-                >
-                  {isDeactivated ? 'Deactivated for sub-unit' : et.description}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                  <span className="text-xl sm:text-2xl">{et.icon}</span>
+                  <span className={'text-xs font-bold ' + (isSelected ? 'text-white' : 'text-zinc-900')}>
+                    {et.label}
+                  </span>
+                  <span className={'text-[10px] leading-tight line-clamp-2 ' + (isSelected ? 'text-zinc-300' : 'text-zinc-500')}>
+                    {et.description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <form onSubmit={onSubmit} autoComplete="off" className="flex flex-col gap-4">

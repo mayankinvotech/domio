@@ -60,6 +60,18 @@ export const VALID_PARENT_TYPES: Record<RentableEntityType, RentableEntityType[]
   BED: ['ROOM', 'FLOOR'],
 };
 
+// Types that legally appear as SOMEONE's valid parent (i.e. can have
+// children at all). OFFICE and BED never appear in any list above, so they
+// are always terminal — no sub-unit (including a Bed) may ever be added
+// under an Office, and nothing may be added under a Bed.
+const TYPES_ALLOWED_AS_PARENT = new Set<RentableEntityType>(
+  Object.values(VALID_PARENT_TYPES).flat(),
+);
+
+export function canHaveChildren(type: RentableEntityType): boolean {
+  return TYPES_ALLOWED_AS_PARENT.has(type);
+}
+
 // ── Input parsing ─────────────────────────────────────────────────────────────
 
 export type ParsedRentableEntity = {
