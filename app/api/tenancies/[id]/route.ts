@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { resolveDataScope } from '@/lib/manager-access';
+import { cascadeVacantToDescendants } from '@/lib/rentable-entities';
 
 export async function PATCH(
   req: Request,
@@ -74,6 +75,9 @@ export async function PATCH(
             where: { id: tenancy.rentableEntityId },
             data: { status: 'VACANT' },
           });
+          // A parent unit going vacant means every sub-unit nested beneath
+          // it is vacant too.
+          await cascadeVacantToDescendants(tenancy.rentableEntityId, tenancy.ownerId);
         }
       }
     }
@@ -136,6 +140,9 @@ export async function DELETE(
           where: { id: tenancy.rentableEntityId },
           data: { status: 'VACANT' },
         });
+        // A parent unit going vacant means every sub-unit nested beneath it
+        // is vacant too.
+        await cascadeVacantToDescendants(tenancy.rentableEntityId, tenancy.ownerId);
       }
     }
 

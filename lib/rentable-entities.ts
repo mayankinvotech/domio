@@ -432,6 +432,34 @@ export async function checkDescendantLeaseConflict(
   return result[0]?.id ?? null;
 }
 
+/**
+ * Cascades a VACANT status down the tree: when a node's lease ends or is
+ * terminated and it becomes vacant, every descendant sub-unit should also
+ * read as vacant, since a parent unit going vacant always covers everything
+ * nested beneath it. Scoped to `ownerId` so it never touches another
+ * owner's data.
+ */
+export async function cascadeVacantToDescendants(
+  nodeId: string,
+  ownerId: string,
+): Promise<void> {
+  await prisma.$executeRaw`
+    WITH RECURSIVE descendants AS (
+      SELECT id
+      FROM "RentableEntity"
+      WHERE id = ${nodeId} AND "ownerId" = ${ownerId}
+      UNION ALL
+      SELECT re.id
+      FROM "RentableEntity" re
+      INNER JOIN descendants d ON re."parentId" = d.id
+      WHERE re."ownerId" = ${ownerId}
+    )
+    UPDATE "RentableEntity"
+    SET status = 'VACANT', "updatedAt" = NOW()
+    WHERE id IN (SELECT id FROM descendants WHERE id <> ${nodeId})
+  `;
+}
+
 // ── Rent aggregation ──────────────────────────────────────────────────────────
 
 export type RentAggregation = {
