@@ -123,14 +123,13 @@ type LedgerRow = {
   status: string;
 };
 
-// An entry counts as overdue if its due date has passed and a balance remains
-// (regardless of whether a sweep has flipped its status yet).
-function isOverdue(l: LedgerRow, now: Date): boolean {
-  return (
-    l.dueDate < now &&
-    l.amountDue - l.amountPaid > 0.001 &&
-    l.status !== 'PAID'
-  );
+// An entry counts as overdue only if the DB status is explicitly 'OVERDUE'.
+// NOTE: rentLedger.amountPaid is set to 0 at schedule creation and is NOT
+// updated when payments are recorded (payments flow through ledgerEntry).
+// Relying on (amountDue - amountPaid) would therefore always equal amountDue,
+// inflating the overdue total to a multiple of the monthly rent.
+function isOverdue(l: LedgerRow): boolean {
+  return l.status === 'OVERDUE';
 }
 
 // ── RentableEntity tree builder ────────────────────────────────────────────────
@@ -483,10 +482,12 @@ export async function getPortfolioOverview(
         const ledger = (tenancy?.rentLedger ?? []) as LedgerRow[];
 
         const overdueEntries = ledger
-          .filter((l) => isOverdue(l, now))
+          .filter((l) => isOverdue(l))
           .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+        // amountPaid on rentLedger rows is not maintained (always 0) —
+        // sum amountDue directly for overdue rows.
         const overdueAmount = overdueEntries.reduce(
-          (s, l) => s + (l.amountDue - l.amountPaid),
+          (s, l) => s + l.amountDue,
           0,
         );
         const oldestOverdue = overdueEntries[0] ?? null;
