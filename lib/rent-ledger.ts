@@ -297,7 +297,7 @@ export const RENT_LEDGER_MUTABLE_SELECT = {
   notes: true,
   paymentMethod: true,
   status: true,
-  tenancy: { select: { subPropertyId: true } },
+  tenancy: { select: { subPropertyId: true, rentableEntityId: true } },
 } as const;
 
 export type ParsedRentLedgerPatch = {

@@ -10,9 +10,14 @@ import { prisma } from '@/lib/prisma';
 
 export type AuditActor = { id: string; role: Role; name: string };
 
+// Exactly one of subPropertyId / rentableEntityId should be set, matching
+// which hierarchy the tenancy hangs off (legacy SubProperty vs the newer
+// RentableEntity tree). Both are nullable in the schema for exactly this
+// reason — a hierarchy-based tenancy has no SubProperty row to reference.
 export type AuditContext = {
   ownerId: string;
-  subPropertyId: string;
+  subPropertyId: string | null;
+  rentableEntityId: string | null;
   tenancyId: string;
 };
 
@@ -110,6 +115,7 @@ export async function recordAudit(
       actorName: args.actor.name,
       ownerId: args.ctx.ownerId,
       subPropertyId: args.ctx.subPropertyId,
+      rentableEntityId: args.ctx.rentableEntityId,
       tenancyId: args.ctx.tenancyId,
       before: before ?? Prisma.JsonNull,
       after: after ?? Prisma.JsonNull,
@@ -134,7 +140,8 @@ export type AuditLogItem = {
   reason: string | null;
   createdAt: Date;
   tenancyId: string;
-  subPropertyId: string;
+  subPropertyId: string | null;
+  rentableEntityId: string | null;
   tenant: { name: string } | null;
   unit: { name: string; unitNumber: string } | null;
 };
@@ -153,8 +160,10 @@ const AUDIT_SELECT = {
   createdAt: true,
   tenancyId: true,
   subPropertyId: true,
+  rentableEntityId: true,
   tenancy: { select: { tenant: { select: { name: true } } } },
   subProperty: { select: { name: true, unitNumber: true } },
+  rentableEntity: { select: { name: true, code: true } },
 } satisfies Prisma.AuditLogSelect;
 
 function toItem(r: Prisma.AuditLogGetPayload<{ select: typeof AUDIT_SELECT }>): AuditLogItem {
@@ -172,10 +181,13 @@ function toItem(r: Prisma.AuditLogGetPayload<{ select: typeof AUDIT_SELECT }>): 
     createdAt: r.createdAt,
     tenancyId: r.tenancyId,
     subPropertyId: r.subPropertyId,
+    rentableEntityId: r.rentableEntityId,
     tenant: r.tenancy?.tenant ?? null,
     unit: r.subProperty
       ? { name: r.subProperty.name, unitNumber: r.subProperty.unitNumber }
-      : null,
+      : r.rentableEntity
+        ? { name: r.rentableEntity.name, unitNumber: r.rentableEntity.code }
+        : null,
   };
 }
 

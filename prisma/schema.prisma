@@ -98,6 +98,8 @@ model Portfolio {
   properties  Property[]
   expenses    Expense[]
   utilityAccounts UtilityAccount[]
+
+  @@index([ownerId])
 }
 
 enum PortfolioType {
@@ -140,6 +142,9 @@ model Property {
   utilityAccounts UtilityAccount[]
   propertyAccess PropertyAccess[]
   privacyRequests PrivacyRequest[]
+
+  @@index([ownerId])
+  @@index([portfolioId])
 }
 
 enum PropertyType {
@@ -177,6 +182,9 @@ model SubProperty {
   utilityAccounts UtilityAccount[]
   propertyAccess PropertyAccess[]
   auditLogs  AuditLog[]
+
+  @@index([ownerId])
+  @@index([propertyId])
 }
 
 enum SubPropertyStatus {
@@ -227,6 +235,7 @@ model RentableEntity {
   updatedAt   DateTime           @updatedAt
 
   tenancies   Tenancy[]
+  auditLogs   AuditLog[]
 
   @@index([propertyId])
   @@index([parentId])
@@ -267,6 +276,7 @@ model Tenant {
 
   @@index([phone])
   @@index([username])
+  @@index([ownerId])
 }
 
 // One-time passwords for the tenant self-service portal.
@@ -311,6 +321,12 @@ model Tenancy {
   rentLedger        RentLedger[]
   ledgerEntries     LedgerEntry[]
   auditLogs         AuditLog[]
+
+  @@index([ownerId])
+  @@index([tenantId])
+  @@index([subPropertyId])
+  @@index([rentableEntityId])
+  @@index([status])
 }
 
 enum TenancyStatus {
@@ -365,6 +381,10 @@ model RentLedger {
   status     RentStatus @default(DUE)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
+
+  @@index([ownerId, dueDate])
+  @@index([tenancyId])
+  @@index([status])
 }
 
 enum RentStatus {
@@ -390,6 +410,11 @@ model Expense {
   receiptUrl    String?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
+
+  @@index([ownerId, date])
+  @@index([portfolioId])
+  @@index([propertyId])
+  @@index([subPropertyId])
 }
 
 enum ExpenseCategory {
@@ -420,6 +445,11 @@ model UtilityAccount {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   bills         UtilityBill[]
+
+  @@index([ownerId])
+  @@index([portfolioId])
+  @@index([propertyId])
+  @@index([subPropertyId])
 }
 
 model UtilityBill {
@@ -438,6 +468,10 @@ model UtilityBill {
   paymentMethod    PaymentMethod?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
+
+  @@index([ownerId, dueDate])
+  @@index([utilityAccountId])
+  @@index([status])
 }
 
 enum UtilityType {
@@ -597,8 +631,14 @@ model AuditLog {
   // blocks deleting a tenant, unit, or owner (or an import rollback).
   ownerId       String
   owner         User        @relation("AuditOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  subPropertyId String
-  subProperty   SubProperty @relation(fields: [subPropertyId], references: [id], onDelete: Cascade)
+  // Exactly one of subPropertyId / rentableEntityId is set, matching which
+  // hierarchy the tenancy being audited hangs off (legacy SubProperty vs the
+  // newer RentableEntity tree). Both nullable so a RentableEntity-based
+  // tenancy's rent-ledger edits can be audited without a SubProperty row.
+  subPropertyId String?
+  subProperty   SubProperty? @relation(fields: [subPropertyId], references: [id], onDelete: Cascade)
+  rentableEntityId String?
+  rentableEntity   RentableEntity? @relation(fields: [rentableEntityId], references: [id], onDelete: Cascade)
   tenancyId     String
   tenancy       Tenancy     @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
 

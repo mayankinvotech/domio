@@ -320,7 +320,12 @@ export async function runTool(
             entityId: created.id,
             action: 'CREATE',
             actor,
-            ctx: { ownerId, subPropertyId: t.subPropertyId ?? '', tenancyId: t.id },
+            ctx: {
+              ownerId,
+              subPropertyId: t.subPropertyId ?? null,
+              rentableEntityId: t.rentableEntityId ?? null,
+              tenancyId: t.id,
+            },
             before: null,
             after: created,
             reason: 'via Ask Domi',

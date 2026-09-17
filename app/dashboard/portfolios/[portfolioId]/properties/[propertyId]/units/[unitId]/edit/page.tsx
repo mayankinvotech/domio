@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { getOwnedSubProperty } from '@/lib/sub-properties';
+import { prisma } from '@/lib/prisma';
 import { resolveDataScope } from '@/lib/manager-access';
 import UnitForm from '../../unit-form';
 
@@ -16,7 +17,48 @@ export default async function EditUnitPage({
   const { portfolioId, propertyId, unitId } = await params;
   const ds = await resolveDataScope(session.user);
   const unit = await getOwnedSubProperty(unitId, ds.ownerId);
-  if (!unit || unit.propertyId !== propertyId) notFound();
+
+  let resolvedUnit: {
+    id: string;
+    name: string;
+    unitNumber: string;
+    floor: string | null;
+    areaSqft: number | null;
+    rentAmount: number;
+    status: any;
+    notes: string | null;
+  } | null = null;
+
+  if (unit && unit.propertyId === propertyId) {
+    resolvedUnit = {
+      id: unit.id,
+      name: unit.name,
+      unitNumber: unit.unitNumber,
+      floor: unit.floor,
+      areaSqft: unit.areaSqft,
+      rentAmount: unit.rentAmount,
+      status: unit.status,
+      notes: unit.notes,
+    };
+  } else {
+    const re = await prisma.rentableEntity.findFirst({
+      where: { id: unitId, ownerId: ds.ownerId },
+    });
+    if (re && re.propertyId === propertyId) {
+      resolvedUnit = {
+        id: re.id,
+        name: re.name,
+        unitNumber: re.code,
+        floor: null,
+        areaSqft: re.areaSqft,
+        rentAmount: re.rentAmount,
+        status: re.status,
+        notes: re.notes,
+      };
+    }
+  }
+
+  if (!resolvedUnit) notFound();
 
   const listHref = `/dashboard/portfolios/${portfolioId}/properties/${propertyId}/units`;
 
@@ -37,16 +79,7 @@ export default async function EditUnitPage({
           mode="edit"
           propertyId={propertyId}
           listHref={listHref}
-          unit={{
-            id: unit.id,
-            name: unit.name,
-            unitNumber: unit.unitNumber,
-            floor: unit.floor,
-            areaSqft: unit.areaSqft,
-            rentAmount: unit.rentAmount,
-            status: unit.status,
-            notes: unit.notes,
-          }}
+          unit={resolvedUnit}
         />
       </div>
     </div>

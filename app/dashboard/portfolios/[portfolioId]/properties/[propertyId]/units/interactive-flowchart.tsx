@@ -11,6 +11,7 @@ import type { VacantUnit } from '@/components/portfolios/assign-tenant-modal';
 import type { SubPropertyListItem } from '@/lib/sub-properties';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
+import EditUnitModal, { type EditableUnit } from './edit-unit-modal';
 
 const TYPE_ICONS: Record<string, string> = {
   PROPERTY: '🏢',
@@ -110,6 +111,26 @@ export default function InteractiveFlowchart({
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'OCCUPIED' | 'VACANT' | 'MAINTENANCE'>('ALL');
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<RentableEntityNode | null>(null);
+
+  // Edit modal state
+  const [editTarget, setEditTarget] = useState<EditableUnit | null>(null);
+
+  const handleEditNode = useCallback((node: RentableEntityNode) => {
+    setEditTarget({
+      id: node.id,
+      name: node.name,
+      code: node.code,
+      type: node.type,
+      status: node.status,
+      rentAmount: node.rentAmount,
+      areaSqft: node.areaSqft,
+      notes: node.notes,
+      hasChildren: Boolean(node.children && node.children.length > 0),
+      hasActiveLease: Boolean(node.activeLease),
+      activeTenantName: node.activeLease?.tenantName ?? null,
+      isRentableEntity: true,
+    });
+  }, []);
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<RentableEntityNode | null>(null);
@@ -458,6 +479,7 @@ export default function InteractiveFlowchart({
                 collapsedNodes={collapsedNodes}
                 onToggleCollapse={toggleCollapse}
                 onSelectNode={(n) => setSelectedNode(n)}
+                onEditNode={handleEditNode}
                 onDeleteNode={(n) => { setDeleteError(null); setDeleteTarget(n); }}
                 onAssignTenant={onAssignTenant}
                 selectedNodeId={selectedNode?.id}
@@ -612,7 +634,7 @@ export default function InteractiveFlowchart({
                     });
                     setSelectedNode(null);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 cursor-pointer"
                 >
                   🔑 Assign Tenant
                 </button>
@@ -620,10 +642,23 @@ export default function InteractiveFlowchart({
               <button
                 type="button"
                 onClick={() => {
+                  handleEditNode(selectedNode);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-800 shadow-2xs transition hover:bg-zinc-50 hover:border-zinc-300 cursor-pointer"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                Edit Status & Price
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   setDeleteError(null);
                   setDeleteTarget(selectedNode);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-600 hover:text-white"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-600 hover:text-white cursor-pointer"
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
@@ -703,6 +738,18 @@ export default function InteractiveFlowchart({
           </div>
         </div>
       )}
+
+      {/* Edit Unit Modal */}
+      <EditUnitModal
+        isOpen={!!editTarget}
+        unit={editTarget}
+        onClose={() => setEditTarget(null)}
+        onSaved={() => {
+          setEditTarget(null);
+          setSelectedNode(null);
+          router.refresh();
+        }}
+      />
     </div>
   );
 }
@@ -715,6 +762,7 @@ function FlowNode({
   collapsedNodes,
   onToggleCollapse,
   onSelectNode,
+  onEditNode,
   onDeleteNode,
   onAssignTenant,
   selectedNodeId,
@@ -728,6 +776,7 @@ function FlowNode({
   collapsedNodes: Set<string>;
   onToggleCollapse: (id: string, e?: React.MouseEvent) => void;
   onSelectNode: (node: RentableEntityNode) => void;
+  onEditNode: (node: RentableEntityNode) => void;
   onDeleteNode: (node: RentableEntityNode) => void;
   onAssignTenant?: (unit: VacantUnit) => void;
   selectedNodeId?: string;
@@ -899,21 +948,38 @@ function FlowNode({
               <span className="text-[10px] text-zinc-400 font-mono">Leaf Unit</span>
             )}
 
-            {/* Right: delete icon */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteNode(node);
-              }}
-              title={`Delete ${node.name}`}
-              aria-label={`Delete ${node.name}`}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-500 shadow-2xs transition-all duration-150 hover:bg-rose-600 hover:text-white hover:border-rose-600 hover:scale-110 active:scale-95"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-              </svg>
-            </button>
+            {/* Right: edit & delete icons */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditNode(node);
+                }}
+                title={`Edit ${node.name}`}
+                aria-label={`Edit ${node.name}`}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-600 shadow-2xs transition-all duration-150 hover:bg-zinc-900 hover:text-white hover:border-zinc-900 hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteNode(node);
+                }}
+                title={`Delete ${node.name}`}
+                aria-label={`Delete ${node.name}`}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-500 shadow-2xs transition-all duration-150 hover:bg-rose-600 hover:text-white hover:border-rose-600 hover:scale-110 active:scale-95 cursor-pointer"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -965,6 +1031,7 @@ function FlowNode({
                     collapsedNodes={collapsedNodes}
                     onToggleCollapse={onToggleCollapse}
                     onSelectNode={onSelectNode}
+                    onEditNode={onEditNode}
                     onDeleteNode={onDeleteNode}
                     onAssignTenant={onAssignTenant}
                     selectedNodeId={selectedNodeId}

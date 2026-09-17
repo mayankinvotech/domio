@@ -184,32 +184,49 @@ export async function POST(req: Request) {
       }
     }
 
-    // ── Create tenancy + update statuses atomically ────────────────────────
+    // Guard against cross-owner tenant hijack: a caller could otherwise point
+    // a tenancy at their own unit using a tenantId belonging to a tenant
+    // already linked to a *different* owner, silently reassigning that
+    // tenant's ownerId (see Tenant.ownerId -- "null until linked to an
+    // owner"). Only unclaimed tenants (ownerId null) or tenants already
+    // owned by the unit's owner may be assigned; SUPER_ADMIN is exempt.
+    if (!isSuperAdmin && tenant.ownerId && tenant.ownerId !== targetOwnerId) {
+      return NextResponse.json(
+        { error: 'Access denied: this tenant record belongs to a different owner.' },
+        { status: 403 },
+      );
+    }
+
+    // -- Create tenancy + update statuses atomically ------------------------
+    // Everything below (tenancy row, rent schedule, unit/entity status flip,
+    // tenant ownerId link) is one unit of work: if any step fails, nothing
+    // should stick -- a bare sequence of awaits previously left the tenancy
+    // created but e.g. the unit still VACANT on a rent-schedule failure.
     const displayId = await generateTenancyId().catch(() => null);
+    const schedule = buildLedgerSchedule(start, end, day, rent);
 
-    const tenancy = await prisma.tenancy.create({
-      data: {
-        displayId,
-        tenantId,
-        subPropertyId: subPropertyId || null,
-        rentableEntityId: rentableEntityId || null,
-        startDate: start,
-        endDate: end,
-        monthlyRent: rent,
-        securityDeposit: deposit,
-        paymentDayOfMonth: day,
-        status: 'ACTIVE',
-        ownerId: targetOwnerId,
-      },
-    });
+    const tenancy = await prisma.$transaction(async (tx) => {
+      const created = await tx.tenancy.create({
+        data: {
+          displayId,
+          tenantId,
+          subPropertyId: subPropertyId || null,
+          rentableEntityId: rentableEntityId || null,
+          startDate: start,
+          endDate: end,
+          monthlyRent: rent,
+          securityDeposit: deposit,
+          paymentDayOfMonth: day,
+          status: 'ACTIVE',
+          ownerId: targetOwnerId,
+        },
+      });
 
-    // Pre-generate monthly rent schedules for the full lease duration
-    try {
-      const schedule = buildLedgerSchedule(start, end, day, rent);
+      // Pre-generate monthly rent schedules for the full lease duration
       if (schedule.length > 0) {
-        await prisma.rentLedger.createMany({
+        await tx.rentLedger.createMany({
           data: schedule.map((item) => ({
-            tenancyId: tenancy.id,
+            tenancyId: created.id,
             ownerId: targetOwnerId,
             dueDate: item.dueDate,
             amountDue: item.amountDue,
@@ -222,28 +239,28 @@ export async function POST(req: Request) {
           })),
         });
       }
-    } catch (schedErr) {
-      console.warn('[POST /api/tenancies] Rent schedule pre-generation note:', schedErr);
-    }
 
-    // Mark unit/entity as OCCUPIED
-    if (subPropertyId) {
-      await prisma.subProperty.update({
-        where: { id: subPropertyId },
-        data: { status: 'OCCUPIED' },
-      });
-    }
-    if (rentableEntityId) {
-      await prisma.rentableEntity.update({
-        where: { id: rentableEntityId },
-        data: { status: 'OCCUPIED' },
-      });
-    }
+      // Mark unit/entity as OCCUPIED
+      if (subPropertyId) {
+        await tx.subProperty.update({
+          where: { id: subPropertyId },
+          data: { status: 'OCCUPIED' },
+        });
+      }
+      if (rentableEntityId) {
+        await tx.rentableEntity.update({
+          where: { id: rentableEntityId },
+          data: { status: 'OCCUPIED' },
+        });
+      }
 
-    // Always link tenant to the unit's owner
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { ownerId: targetOwnerId },
+      // Always link tenant to the unit's owner
+      await tx.tenant.update({
+        where: { id: tenantId },
+        data: { ownerId: targetOwnerId },
+      });
+
+      return created;
     });
 
     return NextResponse.json({ success: true, tenancyId: tenancy.id }, { status: 201 });

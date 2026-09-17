@@ -47,6 +47,44 @@ export function isValidPhone(phone: string): boolean {
 }
 
 /**
+ * Send a plain, non-OTP SMS notification (e.g. "portal access enabled").
+ * Mirrors sendOtpSms's config handling but with a caller-supplied body and no
+ * WhatsApp fallback or OTP-specific preview text.
+ */
+export async function sendPlainSms(
+  toPhone: string,
+  body: string,
+): Promise<TwilioSendResult> {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_FROM_NUMBER;
+
+  const formattedTo = formatE164Phone(toPhone);
+  if (!formattedTo) {
+    return { sent: false, reason: 'Invalid phone number provided.' };
+  }
+  if (!accountSid || !authToken || !fromNumber) {
+    console.info(`[Twilio Dev Mode] SMS to ${formattedTo}: ${body} (Twilio credentials not set in .env)`);
+    return { sent: false, reason: 'Twilio SMS not configured in .env.' };
+  }
+
+  try {
+    const mainAccountSid =
+      process.env.TWILIO_MAIN_ACCOUNT_SID ||
+      (accountSid.startsWith('AC') ? accountSid : undefined);
+    const client = accountSid.startsWith('SK') && mainAccountSid
+      ? twilio(accountSid, authToken, { accountSid: mainAccountSid })
+      : twilio(accountSid, authToken);
+
+    const message = await client.messages.create({ body, from: fromNumber, to: formattedTo });
+    return { sent: true, sid: message.sid, channel: 'SMS' };
+  } catch (err: any) {
+    console.error('[Twilio] Failed to dispatch plain SMS:', err?.message || err);
+    return { sent: false, reason: err?.message || 'Failed to send SMS via Twilio' };
+  }
+}
+
+/**
  * Send standard 6-digit OTP code to user's phone via Twilio SMS & WhatsApp.
  */
 export async function sendOtpSms(
