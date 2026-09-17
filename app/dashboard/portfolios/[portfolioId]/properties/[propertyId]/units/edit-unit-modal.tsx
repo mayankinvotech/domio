@@ -215,7 +215,7 @@ export default function EditUnitModal({
           {/* Status Selection */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-zinc-700 flex items-center justify-between">
-              <span>Status</span>
+              <span>Status <span className="text-red-500 font-bold ml-0.5">*</span></span>
               {unit.hasActiveLease && (
                 <span className="text-[11px] font-normal text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
                   👤 Active lease: {unit.activeTenantName || 'Tenant'}
@@ -275,7 +275,7 @@ export default function EditUnitModal({
           {/* Price / Rent Amount */}
           <div className="space-y-1.5">
             <label htmlFor="edit-rent" className="text-xs font-bold uppercase tracking-wider text-zinc-700">
-              Price / Rent Amount (Monthly)
+              Price / Rent Amount (Monthly) <span className="text-red-500 font-bold ml-0.5">*</span>
             </label>
             <div className="flex overflow-hidden rounded-xl border border-zinc-300 bg-white shadow-xs focus-within:border-zinc-900 focus-within:ring-2 focus-within:ring-zinc-900/10 transition">
               <select
@@ -314,7 +314,7 @@ export default function EditUnitModal({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label htmlFor="edit-name" className="text-xs font-bold uppercase tracking-wider text-zinc-700">
-                Name
+                Name <span className="text-red-500 font-bold ml-0.5">*</span>
               </label>
               <input
                 id="edit-name"
@@ -328,7 +328,7 @@ export default function EditUnitModal({
 
             <div className="space-y-1.5">
               <label htmlFor="edit-code" className="text-xs font-bold uppercase tracking-wider text-zinc-700">
-                Code / Identifier
+                Code / Identifier <span className="text-zinc-400 font-normal">(optional)</span>
               </label>
               <input
                 id="edit-code"

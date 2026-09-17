@@ -22,9 +22,27 @@ export function parseUnitInput(
   if (typeof name !== 'string' || !name.trim()) {
     return { error: 'Name is required.' };
   }
-  if (typeof unitNumber !== 'string' || !unitNumber.trim()) {
-    return { error: 'Unit number is required.' };
+
+  // Unit number / code is optional; auto-generate clean code if omitted
+  let resolvedUnitNumber = typeof unitNumber === 'string' ? unitNumber.trim() : '';
+  if (!resolvedUnitNumber) {
+    const cleanedName = name.trim();
+    const numMatch = cleanedName.match(/\d+[a-zA-Z]?/);
+    if (numMatch) {
+      resolvedUnitNumber = numMatch[0];
+    } else {
+      const words = cleanedName.split(/\s+/);
+      if (words.length > 1) {
+        resolvedUnitNumber = words.map((w) => w[0].toUpperCase()).join('');
+      } else {
+        resolvedUnitNumber = cleanedName.slice(0, 4).toUpperCase();
+      }
+    }
+    if (!resolvedUnitNumber) {
+      resolvedUnitNumber = `UN-${Math.floor(100 + Math.random() * 900)}`;
+    }
   }
+
   if (!isSubPropertyStatus(status)) {
     return { error: 'A valid status is required.' };
   }
@@ -46,7 +64,7 @@ export function parseUnitInput(
   return {
     data: {
       name: name.trim(),
-      unitNumber: unitNumber.trim(),
+      unitNumber: resolvedUnitNumber,
       floor: typeof floor === 'string' && floor.trim() ? floor.trim() : null,
       areaSqft: area,
       rentAmount: rent,

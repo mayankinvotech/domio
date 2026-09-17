@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { resolveDataScope } from '@/lib/manager-access';
+import { handleMaintenanceStatusCascade } from '@/lib/rentable-entities';
 
 export async function DELETE(
   request: Request,
@@ -233,6 +234,9 @@ export async function PATCH(
       });
 
       if (matchingEntity) {
+        if (updates.status) {
+          await handleMaintenanceStatusCascade(matchingEntity.id, updates.status, ds.ownerId);
+        }
         await prisma.rentableEntity.update({
           where: { id: matchingEntity.id },
           data: {
@@ -320,6 +324,10 @@ export async function PATCH(
         where: { id },
         data: updates,
       });
+
+      if (updates.status) {
+        await handleMaintenanceStatusCascade(id, updates.status, ds.ownerId);
+      }
 
       // Sync to matching SubProperty if exists
       const matchingSubProp = await prisma.subProperty.findFirst({

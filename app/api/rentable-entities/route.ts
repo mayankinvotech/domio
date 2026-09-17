@@ -7,6 +7,7 @@ import {
   listRentableEntitiesForProperty,
   VALID_PARENT_TYPES,
   RENTABLE_ENTITY_TYPE_LABELS,
+  handleMaintenanceStatusCascade,
 } from '@/lib/rentable-entities';
 import { generateRentableEntityId, generateUnitId } from '@/lib/display-ids';
 
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
   // added under an Office) — the frontend only filters the parent picker,
   // it doesn't stop a direct/older request from slipping an invalid pair
   // through, and clicking "+" on a node passes its id straight through.
+  let parentEntityStatus: string | null = null;
   if (parsed.data.parentId) {
     const parentEntity = await prisma.rentableEntity.findFirst({
       where: { id: parsed.data.parentId, ownerId: ds.ownerId, propertyId },
@@ -120,7 +122,13 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    parentEntityStatus = parentEntity.status;
   }
+
+  const initialStatus =
+    parentEntityStatus === 'MAINTENANCE' && (!body.status || body.status === 'VACANT')
+      ? 'MAINTENANCE'
+      : parsed.data.status;
 
   const displayId = await generateRentableEntityId();
 
@@ -134,13 +142,15 @@ export async function POST(request: Request) {
         parentId: parsed.data.parentId,
         areaSqft: parsed.data.areaSqft,
         rentAmount: parsed.data.rentAmount,
-        status: parsed.data.status,
+        status: initialStatus,
         notes: parsed.data.notes,
         sortOrder: parsed.data.sortOrder,
         propertyId,
         ownerId: ds.ownerId,
       },
     });
+
+    await handleMaintenanceStatusCascade(entity.id, entity.status, ds.ownerId);
 
     // Also sync to SubProperty table if it's a rentable unit so it appears in standard unit blocks
     if (parsed.data.type !== 'PROPERTY') {

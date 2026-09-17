@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { resolveDataScope } from '@/lib/manager-access';
+import { handleMaintenanceStatusCascade } from '@/lib/rentable-entities';
 
 export async function DELETE(
   request: Request,
@@ -183,6 +184,10 @@ export async function PATCH(
       where: { id },
       data: updates,
     });
+
+    if (updates.status) {
+      await handleMaintenanceStatusCascade(id, updates.status, ds.ownerId);
+    }
 
     // Also sync updates to any dual-synced SubProperty matching this entity
     const matchingSubProp = await prisma.subProperty.findFirst({

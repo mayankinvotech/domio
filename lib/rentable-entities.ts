@@ -107,8 +107,25 @@ export function parseRentableEntityInput(
   if (typeof name !== 'string' || !name.trim()) {
     return { error: 'Name is required.' };
   }
-  if (typeof code !== 'string' || !code.trim()) {
-    return { error: 'A short code/identifier is required.' };
+
+  // Code/Identifier is optional; auto-generate clean code if omitted
+  let resolvedCode = typeof code === 'string' ? code.trim() : '';
+  if (!resolvedCode) {
+    const cleanedName = name.trim();
+    const numMatch = cleanedName.match(/\d+[a-zA-Z]?/);
+    if (numMatch) {
+      resolvedCode = numMatch[0];
+    } else {
+      const words = cleanedName.split(/\s+/);
+      if (words.length > 1) {
+        resolvedCode = words.map((w) => w[0].toUpperCase()).join('');
+      } else {
+        resolvedCode = cleanedName.slice(0, 4).toUpperCase();
+      }
+    }
+    if (!resolvedCode) {
+      resolvedCode = `${type.slice(0, 2)}-${Math.floor(100 + Math.random() * 900)}`;
+    }
   }
 
   // parentId: required for FLOOR, ROOM, BED; must be null/absent for PROPERTY.
@@ -155,7 +172,7 @@ export function parseRentableEntityInput(
     data: {
       type,
       name: name.trim(),
-      code: code.trim(),
+      code: resolvedCode,
       parentId: resolvedParentId,
       areaSqft: area,
       rentAmount: rent,
@@ -569,3 +586,107 @@ export function parseRentableEntityTenancyInput(
     data: { rentableEntityId, startDate: start, endDate: end, monthlyRent: rent, securityDeposit: deposit, paymentDayOfMonth: day },
   };
 }
+
+// ── Maintenance Status Cascade ────────────────────────────────────────────────
+// Rule 1: If a unit is in MAINTENANCE, all sub-units become MAINTENANCE by default.
+// Rule 2: If a sub-unit's status is changed to VACANT or OCCUPIED, its ancestor
+//         units are no longer in MAINTENANCE (they are switched to VACANT).
+export async function handleMaintenanceStatusCascade(
+  entityId: string,
+  newStatus: SubPropertyStatus,
+  ownerId: string,
+) {
+  if (newStatus === 'MAINTENANCE') {
+    // 1. Cascade MAINTENANCE down to all descendants
+    const descendants = await prisma.$queryRaw<{ id: string }[]>`
+      WITH RECURSIVE descendants AS (
+        SELECT id
+        FROM "RentableEntity"
+        WHERE id = ${entityId} AND "ownerId" = ${ownerId}
+        UNION ALL
+        SELECT re.id
+        FROM "RentableEntity" re
+        INNER JOIN descendants d ON re."parentId" = d.id
+        WHERE re."ownerId" = ${ownerId}
+      )
+      SELECT id FROM descendants WHERE id != ${entityId}
+    `;
+    const descendantIds = descendants.map((d) => d.id);
+    if (descendantIds.length > 0) {
+      await prisma.rentableEntity.updateMany({
+        where: { id: { in: descendantIds }, ownerId },
+        data: { status: 'MAINTENANCE' },
+      });
+
+      const subEntities = await prisma.rentableEntity.findMany({
+        where: { id: { in: descendantIds }, ownerId },
+        select: { code: true, name: true, propertyId: true },
+      });
+      const codes = subEntities.map((s) => s.code).filter(Boolean);
+      const names = subEntities.map((s) => s.name).filter(Boolean);
+
+      if (codes.length > 0 || names.length > 0) {
+        await prisma.subProperty.updateMany({
+          where: {
+            ownerId,
+            OR: [
+              { unitNumber: { in: codes } },
+              { name: { in: names } },
+            ],
+          },
+          data: { status: 'MAINTENANCE' },
+        }).catch((err) => {
+          console.warn('SubProperty cascade warning:', err);
+        });
+      }
+    }
+  } else if (newStatus === 'VACANT' || newStatus === 'OCCUPIED') {
+    // 2. Clear MAINTENANCE on any ancestor units
+    const ancestors = await prisma.$queryRaw<{ id: string; status: string }[]>`
+      WITH RECURSIVE ancestors AS (
+        SELECT id, "parentId", status
+        FROM "RentableEntity"
+        WHERE id = ${entityId} AND "ownerId" = ${ownerId}
+        UNION ALL
+        SELECT re.id, re."parentId", re.status
+        FROM "RentableEntity" re
+        INNER JOIN ancestors a ON re.id = a."parentId"
+        WHERE re."ownerId" = ${ownerId}
+      )
+      SELECT id, status FROM ancestors WHERE id != ${entityId}
+    `;
+    const maintenanceAncestorIds = ancestors
+      .filter((a) => a.status === 'MAINTENANCE')
+      .map((a) => a.id);
+
+    if (maintenanceAncestorIds.length > 0) {
+      await prisma.rentableEntity.updateMany({
+        where: { id: { in: maintenanceAncestorIds }, ownerId },
+        data: { status: 'VACANT' },
+      });
+
+      const ancestorEntities = await prisma.rentableEntity.findMany({
+        where: { id: { in: maintenanceAncestorIds }, ownerId },
+        select: { code: true, name: true },
+      });
+      const codes = ancestorEntities.map((s) => s.code).filter(Boolean);
+      const names = ancestorEntities.map((s) => s.name).filter(Boolean);
+
+      if (codes.length > 0 || names.length > 0) {
+        await prisma.subProperty.updateMany({
+          where: {
+            ownerId,
+            OR: [
+              { unitNumber: { in: codes } },
+              { name: { in: names } },
+            ],
+          },
+          data: { status: 'VACANT' },
+        }).catch((err) => {
+          console.warn('SubProperty cascade warning:', err);
+        });
+      }
+    }
+  }
+}
+

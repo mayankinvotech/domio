@@ -327,7 +327,7 @@ export default function AddRentableEntityForm({
         {needsParent && (
           <div className="flex flex-col gap-1.5">
             <label htmlFor="parentId" className={labelClass}>
-              Parent Entity{' '}
+              Parent Entity <span className="text-red-500 font-bold ml-0.5">*</span>{' '}
               <span className="text-zinc-400 font-normal">
                 (must be: {VALID_PARENT_TYPES[entityType].map((t) => RENTABLE_ENTITY_TYPE_LABELS[t]).join(' or ')})
               </span>
@@ -361,7 +361,7 @@ export default function AddRentableEntityForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="name" className={labelClass}>
-              Name
+              Name <span className="text-red-500 font-bold ml-0.5">*</span>
             </label>
             <input
               id="name"
@@ -375,13 +375,12 @@ export default function AddRentableEntityForm({
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="code" className={labelClass}>
-              Short Code / Unit Number
+              Short Code / Unit Number <span className="text-zinc-400 font-normal">(optional)</span>
             </label>
             <input
               id="code"
               name="code"
               type="text"
-              required
               autoComplete="off"
               placeholder={`e.g. "${entityType === 'FLOOR' ? 'GF' : entityType === 'ROOM' ? '101' : entityType === 'OFFICE' ? '201' : entityType === 'BED' ? 'B1' : 'MAIN'}"`}
               className={inputClass}
@@ -393,7 +392,7 @@ export default function AddRentableEntityForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="rentAmount" className={labelClass}>
-              Listed Rent Amount
+              Listed Rent Amount <span className="text-red-500 font-bold ml-0.5">*</span>
             </label>
             {/* Currency + Amount combined input */}
             <div className="flex overflow-hidden rounded-xl border border-zinc-300 bg-white shadow-xs focus-within:border-zinc-900 focus-within:ring-2 focus-within:ring-zinc-900/10 transition">
@@ -443,7 +442,7 @@ export default function AddRentableEntityForm({
         {/* Status */}
         <div className="flex flex-col gap-1.5">
           <label htmlFor="entityStatus" className={labelClass}>
-            Status
+            Status <span className="text-red-500 font-bold ml-0.5">*</span>
           </label>
           <select id="entityStatus" name="status" defaultValue="VACANT" className={inputClass}>
             {SUB_PROPERTY_STATUSES.map((s) => (

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -189,7 +189,9 @@ export default function AddUnitModal({
 
           {/* Name */}
           <div>
-            <label className={lbl}>Name *</label>
+            <label className={lbl}>
+              Name <span className="text-red-500 font-bold ml-0.5">*</span>
+            </label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)}
               placeholder={mode === 'flat' ? 'e.g. Apartment 3B' : 'e.g. Floor 1, Room 2A, Bed B'}
               className={input} required />
@@ -198,7 +200,9 @@ export default function AddUnitModal({
           {/* Code / Unit Number */}
           {mode === 'entity' ? (
             <div>
-              <label className={lbl}>Short Code</label>
+              <label className={lbl}>
+                Short Code <span className="text-zinc-400 font-normal">(optional)</span>
+              </label>
               <input type="text" value={code} onChange={(e) => setCode(e.target.value)}
                 placeholder="e.g. F1, R2A, BD-B (auto-generated if blank)"
                 className={input} />
@@ -206,9 +210,11 @@ export default function AddUnitModal({
           ) : (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={lbl}>Unit Number *</label>
+                <label className={lbl}>
+                  Unit Number <span className="text-zinc-400 font-normal">(optional)</span>
+                </label>
                 <input type="text" value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)}
-                  placeholder="e.g. A101, 3B" className={input} required />
+                  placeholder="e.g. A101, 3B (auto-generated if blank)" className={input} />
               </div>
               <div>
                 <label className={lbl}>Floor</label>
@@ -221,7 +227,9 @@ export default function AddUnitModal({
           {/* Rent & Area */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={lbl}>Listed Rent *</label>
+              <label className={lbl}>
+                Listed Rent <span className="text-red-500 font-bold ml-0.5">*</span>
+              </label>
               <div className="flex overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 shadow-xs focus-within:border-zinc-900 focus-within:bg-white focus-within:ring-2 focus-within:ring-zinc-900/10 transition">
                 <span className="shrink-0 flex items-center justify-center border-r border-zinc-200 bg-zinc-100/70 px-3 text-sm font-bold text-zinc-600 select-none">
                   ?

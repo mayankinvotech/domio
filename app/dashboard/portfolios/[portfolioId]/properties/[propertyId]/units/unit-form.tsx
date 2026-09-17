@@ -80,16 +80,16 @@ export default function UnitForm({
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <label htmlFor="name" className={labelClass}>
-          Name
+          Name <span className="text-red-500 font-bold ml-0.5">*</span>
         </label>
         <input id="name" name="name" type="text" required defaultValue={unit?.name ?? ''} className={inputClass} />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="unitNumber" className={labelClass}>
-          Unit Number
+          Unit Number <span className="text-zinc-400 font-normal">(optional)</span>
         </label>
-        <input id="unitNumber" name="unitNumber" type="text" required defaultValue={unit?.unitNumber ?? ''} className={inputClass} />
+        <input id="unitNumber" name="unitNumber" type="text" defaultValue={unit?.unitNumber ?? ''} className={inputClass} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -119,7 +119,7 @@ export default function UnitForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="rentAmount" className={labelClass}>
-            Rent Amount
+            Rent Amount <span className="text-red-500 font-bold ml-0.5">*</span>
           </label>
           {/* Currency + Amount combined input */}
           <div className="flex overflow-hidden rounded-xl border border-zinc-300 bg-white shadow-xs focus-within:border-zinc-900 focus-within:ring-2 focus-within:ring-zinc-900/10 transition">
@@ -153,7 +153,7 @@ export default function UnitForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="status" className={labelClass}>
-            Status
+            Status <span className="text-red-500 font-bold ml-0.5">*</span>
           </label>
           <select id="status" name="status" required defaultValue={unit?.status ?? 'VACANT'} className={inputClass}>
             {SUB_PROPERTY_STATUSES.map((s) => (
