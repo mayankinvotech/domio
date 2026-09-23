@@ -25,6 +25,15 @@ const TYPE_ICONS: Record<string, string> = {
   BED: '🛏️',
 };
 
+// Icon shown in the "Units" column to indicate what child type can be added
+const CHILD_TYPE_ICONS: Record<string, string> = {
+  PROPERTY: '🏗️', // PROPERTY → can add FLOOR
+  FLOOR: '🚪',    // FLOOR → can add ROOM / OFFICE / BED
+  ROOM: '🛏️',    // ROOM → can add BED
+  OFFICE: '—',
+  BED: '—',
+};
+
 const TYPE_BADGES: Record<string, string> = {
   PROPERTY: 'border-purple-200 bg-purple-50 text-purple-700 font-semibold',
   FLOOR: 'border-blue-200 bg-blue-50 text-blue-700 font-semibold',
@@ -332,8 +341,8 @@ export default function RentableEntityTreeView({
               <th className="px-5 py-3 min-w-[260px]">Unit</th>
               <th className="px-4 py-3 text-right min-w-[120px]">Rent</th>
               <th className="px-4 py-3 text-right min-w-[110px]">Collected</th>
-              <th className="px-4 py-3 text-center min-w-[140px]">Status</th>
-              <th className="px-3 py-3 text-center min-w-[70px]">Sub Unit</th>
+              <th className="px-4 py-3 text-center min-w-[160px]">Status</th>
+              <th className="px-4 py-3 text-center min-w-[70px]">Units</th>
               <th className="px-4 py-3 text-right min-w-[120px]">Actions</th>
             </tr>
 
@@ -406,7 +415,7 @@ export default function RentableEntityTreeView({
                 </select>
               </th>
 
-              {/* 5. Status filter */}
+              {/* 4. Status filter */}
               <th className="px-4 py-2 font-normal text-center">
                 <select
                   value={statusFilter}
@@ -421,13 +430,13 @@ export default function RentableEntityTreeView({
                 </select>
               </th>
 
-              {/* 6. Sub-unit filter */}
-              <th className="px-3 py-2 font-normal text-center">
+              {/* 6. Units (sub-unit) filter */}
+              <th className="px-4 py-2 font-normal text-center">
                 <select
                   value={subUnitFilter}
                   onChange={(e) => setSubUnitFilter(e.target.value as SubUnitFilter)}
                   className={selectCls}
-                  aria-label="Filter Sub Unit"
+                  aria-label="Filter Units"
                 >
                   <option value="ALL">All</option>
                   <option value="CAN_ADD">+</option>
@@ -621,50 +630,59 @@ export default function RentableEntityTreeView({
                             )}
                           </span>
                         ) : row.status === 'MAINTENANCE' ? (
-                          <span className="inline-flex items-center rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 whitespace-nowrap">
-                            Maintenance
+                          <span className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 whitespace-nowrap">
+                            🔧 Maintenance
                           </span>
                         ) : (
                           <span className="inline-flex items-center rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 shadow-2xs whitespace-nowrap">
                             Vacant
                           </span>
                         )
+                      ) : row.status === 'MAINTENANCE' ? (
+                        /* Parent row in MAINTENANCE — show badge + child count */
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700 whitespace-nowrap">
+                            🔧 Maintenance
+                          </span>
+                          <span className="text-[10px] text-zinc-400 font-medium">
+                            {row.children.length} unit{row.children.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      ) : row.status === 'OCCUPIED' || !!row.activeLease ? (
+                        /* Parent row with active direct lease */
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 whitespace-nowrap">
+                            👤 Occupied
+                          </span>
+                          <span className="text-[10px] text-zinc-400 font-medium">
+                            {row.children.length} unit{row.children.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
                       ) : (
                         <span className="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[11px] font-bold text-zinc-600 whitespace-nowrap">
-                          {row.children.length} sub-unit{row.children.length !== 1 ? 's' : ''}
+                          {row.children.length} unit{row.children.length !== 1 ? 's' : ''}
                         </span>
                       )}
                     </td>
 
-                    {/* 6. Add Sub Unit (Interactive '+' button, disabled for beds) */}
-                    <td className="px-3 py-2.5 text-center">
+                    {/* 6. Units column — shows child-type icon + add link if allowed */}
+                    <td className="px-4 py-2.5 text-center">
                       {allowSubUnit && pId && effectivePropId ? (
                         <Link
                           href={subUnitHref}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 shadow-2xs transition-all duration-150 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 hover:scale-110 active:scale-95 cursor-pointer"
+                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-indigo-100 bg-indigo-50/80 px-2 py-1 text-sm shadow-2xs transition-all duration-150 hover:bg-indigo-600 hover:border-indigo-600 hover:scale-105 active:scale-95 cursor-pointer select-none"
                           title={`Add sub-unit under ${row.name}`}
                           aria-label={`Add sub-unit under ${row.name}`}
                         >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M12 5v14M5 12h14" />
-                          </svg>
+                          <span>{CHILD_TYPE_ICONS[row.type] || '+'}</span>
                         </Link>
                       ) : (
                         <span
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-300 select-none cursor-not-allowed"
-                          title={row.type === 'BED' ? 'Beds cannot have sub-units' : undefined}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-100 bg-zinc-50 text-xs text-zinc-300 select-none cursor-not-allowed"
+                          title={`${row.type} cannot have sub-units`}
                           aria-label="Cannot add sub-unit"
                         >
-                          —
+                          {CHILD_TYPE_ICONS[row.type] || '—'}
                         </span>
                       )}
                     </td>
@@ -672,23 +690,6 @@ export default function RentableEntityTreeView({
                     {/* 7. Actions */}
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        {row.isLeaf && !isOccupied && row.status !== 'MAINTENANCE' && onAssignTenant && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onAssignTenant({
-                                id: row.id,
-                                name: row.name,
-                                unitNumber: row.code,
-                                rentAmount: row.rentAmount || row.aggregatedRent,
-                                isRentableEntity: true,
-                              })
-                            }
-                            className="inline-flex items-center gap-1 rounded-xl border border-emerald-300 bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 active:scale-95 whitespace-nowrap"
-                          >
-                            🔑 Assign Tenant
-                          </button>
-                        )}
                         <button
                           type="button"
                           onClick={() => {

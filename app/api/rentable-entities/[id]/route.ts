@@ -187,6 +187,36 @@ export async function PATCH(
 
     if (updates.status) {
       await handleMaintenanceStatusCascade(id, updates.status, ds.ownerId);
+
+      // When a unit is set to MAINTENANCE, terminate active tenancies on all
+      // descendant sub-units so that internal rent/collection calculations stay
+      // consistent (no active rent should accrue for units under maintenance).
+      if (updates.status === 'MAINTENANCE') {
+        const descendantIds = await prisma.$queryRaw<{ id: string }[]>`
+          WITH RECURSIVE descendants AS (
+            SELECT id
+            FROM "RentableEntity"
+            WHERE id = ${id} AND "ownerId" = ${ds.ownerId}
+            UNION ALL
+            SELECT re.id
+            FROM "RentableEntity" re
+            INNER JOIN descendants d ON re."parentId" = d.id
+            WHERE re."ownerId" = ${ds.ownerId}
+          )
+          SELECT id FROM descendants WHERE id != ${id}
+        `;
+        const descIds = descendantIds.map((r) => r.id);
+        if (descIds.length > 0) {
+          // Terminate active tenancies on all descendant entities
+          await prisma.tenancy.updateMany({
+            where: {
+              rentableEntityId: { in: descIds },
+              status: 'ACTIVE',
+            },
+            data: { status: 'ENDED' },
+          });
+        }
+      }
     }
 
     // Also sync updates to any dual-synced SubProperty matching this entity
