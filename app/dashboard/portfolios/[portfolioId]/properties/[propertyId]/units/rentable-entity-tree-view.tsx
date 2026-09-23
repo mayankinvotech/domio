@@ -570,11 +570,6 @@ export default function RentableEntityTreeView({
                           >
                             {row.name}
                           </span>
-                          {row.code && (
-                            <span className="font-mono text-[11px] text-zinc-400">
-                              ({row.code})
-                            </span>
-                          )}
                           <NotesIcon notes={row.notes} />
                         </div>
                       </div>

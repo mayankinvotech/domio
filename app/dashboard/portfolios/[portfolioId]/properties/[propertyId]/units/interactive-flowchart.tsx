@@ -513,7 +513,6 @@ export default function InteractiveFlowchart({
                     <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                       {RENTABLE_ENTITY_TYPE_LABELS[selectedNode.type]}
                     </span>
-                    <span className="font-mono text-xs text-zinc-400">({selectedNode.code})</span>
                   </div>
                   <h3 className="text-lg font-bold text-zinc-900">{selectedNode.name}</h3>
                 </div>
@@ -849,11 +848,6 @@ function FlowNode({
               {RENTABLE_ENTITY_TYPE_LABELS[node.type]}
             </span>
           </div>
-          {node.code && (
-            <span className="font-mono text-[10px] bg-black/20 px-1.5 py-0.2 rounded text-white/90">
-              {node.code}
-            </span>
-          )}
         </div>
 
         {/* Card Body */}

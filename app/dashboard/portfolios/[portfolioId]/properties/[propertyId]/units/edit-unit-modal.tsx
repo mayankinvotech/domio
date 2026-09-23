@@ -181,9 +181,6 @@ export default function EditUnitModal({
                 <h2 className="text-base font-bold text-zinc-900">
                   Edit {typeLabel}
                 </h2>
-                <span className="rounded-full bg-zinc-200/80 px-2 py-0.5 text-[10px] font-mono font-bold text-zinc-700">
-                  {unit.code || `#${unit.id.slice(-4)}`}
-                </span>
               </div>
               <p className="text-xs text-zinc-500">
                 Change status, price, and entity information
